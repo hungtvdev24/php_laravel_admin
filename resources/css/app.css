@@ -1,0 +1,33 @@
+.table-warm-header {
+    background-color: #8b4513 !important; /* Nâu ấm đậm cho header bảng */
+    color: white;
+}
+
+.bg-warm-brown {
+    background-color: #a0522d !important; /* Nâu ấm vừa */
+}
+
+.text-warm-brown {
+    color: #a0522d !important;
+}
+
+.btn-warm-orange {
+    background-color: #f4a460 !important; /* Cam nhạt ấm */
+    border-color: #f4a460 !important;
+    color: white;
+}
+
+.btn-warm-orange:hover {
+    background-color: #e08e4e !important;
+    border-color: #e08e4e !important;
+    color: white;
+}
+
+.img-fluid {
+    object-fit: cover;
+}
+
+.list-group-item {
+    background-color: #fff;
+    border-color: #dee2e6;
+}
