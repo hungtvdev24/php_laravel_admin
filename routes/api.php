@@ -10,13 +10,18 @@ use App\Http\Controllers\OrderController;
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
+|
+| Dưới đây là các route cho API của bạn. Các route công khai (không cần xác thực)
+| được định nghĩa ở mục 1 và 2. Các route yêu cầu xác thực (middleware 'auth:sanctum')
+| được đặt trong nhóm middleware.
+|
 */
 
 // 1) Routes công khai
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// 2) Route công khai (ví dụ: sản phẩm phổ biến)
+// 2) Route công khai ví dụ: Lấy danh sách sản phẩm phổ biến
 Route::get('/products/popular-public', [ProductController::class, 'getPopularProducts']);
 
 // 3) Routes yêu cầu xác thực (middleware 'auth:sanctum')
@@ -33,8 +38,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Giỏ hàng
     Route::post('/cart/add/{idSanPham}', [ProductController::class, 'addToCart']);
     Route::get('/cart', [ProductController::class, 'getCart']);
-
-    // **THÊM 2 route** update & remove
     Route::post('/cart/update/{idMucGioHang}', [ProductController::class, 'updateCartItem']);
     Route::post('/cart/remove/{idMucGioHang}', [ProductController::class, 'removeCartItem']);
 
