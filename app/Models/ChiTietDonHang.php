@@ -18,4 +18,10 @@ class ChiTietDonHang extends Model
         'soLuong',
         'gia'
     ];
+
+    // Quan hệ belongsTo với model Product (chỉnh sửa theo tên model của bạn)
+    public function sanPham()
+    {
+        return $this->belongsTo(Product::class, 'id_sanPham', 'id_sanPham');
+    }
 }

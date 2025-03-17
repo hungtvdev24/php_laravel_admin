@@ -23,7 +23,6 @@ class DonHang extends Model
         'tongTien',
         'phuongThucThanhToan',
         'trangThaiDonHang',
-        // 2 cột mới
         'ngay_du_kien_giao',
         'ngay_giao_thuc_te'
     ];
@@ -32,4 +31,16 @@ class DonHang extends Model
         'ngay_du_kien_giao' => 'datetime',
         'ngay_giao_thuc_te' => 'datetime',
     ];
+
+    // Quan hệ hasMany với ChiTietDonHang
+    public function chiTietDonHang()
+    {
+        return $this->hasMany(ChiTietDonHang::class, 'id_donHang', 'id_donHang');
+    }
+
+    // Quan hệ belongsTo với User (nếu cần)
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'id_nguoiDung', 'id');
+    }
 }

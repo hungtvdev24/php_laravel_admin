@@ -67,13 +67,25 @@ Route::middleware(['admin'])->group(function () {
     // Quản lý nhân viên
     Route::get('/admin/employees', [EmployeeController::class, 'index'])->name('admin.employees.index');
 
-    // Quản lý đơn hàng (danh sách & cập nhật trạng thái)
+    // ================== QUẢN LÝ ĐƠN HÀNG ==================
+    // Danh sách đơn hàng
     Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
+
+    // Xem chi tiết đơn hàng
+    Route::get('/admin/orders/{id}/view', [OrderController::class, 'viewOrder'])->name('admin.orders.view');
+
+    // Cập nhật trạng thái đơn hàng
     Route::put('/admin/orders/{id}', [OrderController::class, 'update'])->name('admin.orders.update');
-    
+
+    // **Route hủy đơn hàng** (cho Admin)
+    Route::post('/admin/orders/{id}/cancel', [OrderController::class, 'adminCancelOrder'])
+         ->name('admin.orders.cancel');
+
     // Quản lý khuyến mãi
     Route::get('/admin/promotions', [AdminController::class, 'managePromotions'])->name('admin.promotions.index');
 
     // Quản lý thống kê
+    
     Route::get('/admin/statistics', [AdminController::class, 'statisticsOrders'])->name('admin.statistics.index');
+    
 });

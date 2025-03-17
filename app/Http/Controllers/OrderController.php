@@ -14,34 +14,27 @@ use Illuminate\Support\Facades\DB;
 class OrderController extends Controller
 {
     /**
-     * Xử lý quá trình đặt hàng (checkout) dựa trên danh sách sản phẩm đã chọn.
+     * (User) Xử lý đặt hàng (checkout).
      */
     public function checkout(Request $request)
     {
-        // Validate thông tin đầu vào, bao gồm cả danh sách items đã chọn
         $request->validate([
-            'id_diaChi' => 'required|exists:diaChi,id_diaChi',
+            'id_diaChi'           => 'required|exists:diaChi,id_diaChi',
             'phuongThucThanhToan' => 'required|in:COD,VN_PAY',
-            'items' => 'required|array|min:1'
+            'items'               => 'required|array|min:1'
         ]);
 
         $user = auth()->user();
-
-        // Lấy giỏ hàng của người dùng
         $gioHang = GioHang::where('id_nguoiDung', $user->id)->first();
         if (!$gioHang) {
             return response()->json(['message' => 'Giỏ hàng không tồn tại'], 400);
         }
 
-        // Lấy danh sách sản phẩm được chọn từ request
-        $selectedItemsData = $request->input('items');  // Mảng các item client gửi
-
-        // Kiểm tra danh sách đã gửi có rỗng hay không
+        $selectedItemsData = $request->input('items');
         if (empty($selectedItemsData)) {
             return response()->json(['message' => 'Không có sản phẩm được chọn'], 400);
         }
 
-        // Tính tổng tiền và lấy các mục giỏ hàng được chọn từ DB
         $tongTien = 0;
         $selectedMucGioHangs = collect();
 
@@ -50,14 +43,13 @@ class OrderController extends Controller
                 return response()->json(['message' => 'Thiếu id_mucGioHang trong item'], 400);
             }
 
-            // Chỉ lấy mục giỏ hàng thuộc về giỏ hàng của user
             $muc = MucGioHang::where('id_mucGioHang', $itemData['id_mucGioHang'])
                 ->where('id_gioHang', $gioHang->id_gioHang)
                 ->first();
 
             if (!$muc) {
                 return response()->json([
-                    'message' => "Mục giỏ hàng #{$itemData['id_mucGioHang']} không hợp lệ hoặc không thuộc về người dùng."
+                    'message' => "Mục giỏ hàng #{$itemData['id_mucGioHang']} không hợp lệ hoặc không thuộc về bạn."
                 ], 400);
             }
 
@@ -65,14 +57,13 @@ class OrderController extends Controller
             $selectedMucGioHangs->push($muc);
         }
 
-        // Lấy thông tin địa chỉ
         $diaChi = DiaChi::findOrFail($request->id_diaChi);
 
         DB::beginTransaction();
         try {
-            // Tạo đơn hàng (snapshot thông tin địa chỉ)
+            // Tạo đơn hàng
             $donHang = DonHang::create([
-                'id_nguoiDung'          => $user->id,
+                'id_nguoiDung'         => $user->id,
                 'ten_nguoiNhan'        => $diaChi->ten_nguoiNhan,
                 'sdt_nhanHang'         => $diaChi->sdt_nhanHang,
                 'ten_nha'              => $diaChi->ten_nha,
@@ -84,7 +75,7 @@ class OrderController extends Controller
                 'trangThaiDonHang'     => 'cho_xac_nhan'
             ]);
 
-            // Tạo các dòng chi tiết đơn hàng chỉ cho các mục đã chọn
+            // Tạo chi tiết đơn hàng
             foreach ($selectedMucGioHangs as $muc) {
                 ChiTietDonHang::create([
                     'id_donHang' => $donHang->id_donHang,
@@ -94,7 +85,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            // Tạo thông tin thanh toán
+            // Tạo thanh toán
             $thanhToanData = [
                 'id_donHang'          => $donHang->id_donHang,
                 'soTien'              => $tongTien,
@@ -106,7 +97,7 @@ class OrderController extends Controller
             }
             ThanhToan::create($thanhToanData);
 
-            // Xóa các mục giỏ hàng chỉ của các sản phẩm đã đặt
+            // Xóa các mục giỏ hàng đã đặt
             foreach ($selectedMucGioHangs as $muc) {
                 MucGioHang::where('id_mucGioHang', $muc->id_mucGioHang)
                     ->where('id_gioHang', $gioHang->id_gioHang)
@@ -118,6 +109,7 @@ class OrderController extends Controller
                 'message' => 'Đặt hàng thành công',
                 'donHang' => $donHang
             ], 200);
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -126,43 +118,148 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    
+
     /**
-     * (Admin) Hiển thị danh sách đơn hàng (trang quản trị).
+     * (User) Lấy danh sách đơn hàng của người dùng.
      */
-    public function index()
+    public function userOrders()
     {
-        $orders = DonHang::orderBy('id_donHang', 'desc')->paginate(10);
+        $user = auth()->user();
+        $orders = DonHang::with(['chiTietDonHang.sanPham'])
+            ->where('id_nguoiDung', $user->id)
+            ->orderBy('id_donHang', 'desc')
+            ->get();
+
+        return response()->json([
+            'orders' => $orders
+        ], 200);
+    }
+
+    /**
+     * (User) Xem chi tiết một đơn hàng của người dùng.
+     */
+    public function showOrder($id)
+    {
+        $user = auth()->user();
+        $order = DonHang::with(['chiTietDonHang.sanPham'])
+            ->where('id_donHang', $id)
+            ->where('id_nguoiDung', $user->id)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Đơn hàng không tồn tại hoặc không thuộc về bạn'], 404);
+        }
+
+        return response()->json($order, 200);
+    }
+
+    /**
+     * (User) Hủy đơn hàng nếu đơn hàng ở trạng thái "cho_xac_nhan".
+     */
+    public function cancelOrder($id)
+    {
+        $user = auth()->user();
+        $order = DonHang::where('id_donHang', $id)
+            ->where('id_nguoiDung', $user->id)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Đơn hàng không tồn tại'], 404);
+        }
+
+        if ($order->trangThaiDonHang !== 'cho_xac_nhan') {
+            return response()->json(['message' => 'Chỉ đơn hàng ở trạng thái chờ xác nhận mới có thể hủy'], 400);
+        }
+
+        $order->trangThaiDonHang = 'huy';
+        $order->save();
+
+        return response()->json(['message' => 'Đơn hàng đã được hủy'], 200);
+    }
+
+    /**
+     * (Admin) Hiển thị danh sách đơn hàng (trang quản trị) + tìm & lọc.
+     */
+    public function index(Request $request)
+    {
+        $query = DonHang::orderBy('id_donHang', 'desc');
+
+        // Tìm theo SĐT
+        if ($request->filled('phone')) {
+            $phone = $request->phone;
+            $query->where('sdt_nhanHang', 'LIKE', "%{$phone}%");
+        }
+
+        // Lọc theo trạng thái
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('trangThaiDonHang', $request->status);
+        }
+
+        $orders = $query->paginate(10);
+
         return view('admin.orders.index', compact('orders'));
     }
 
     /**
-     * (Admin) Cập nhật trạng thái đơn hàng và ngày giao hàng.
+     * (Admin) Hiển thị chi tiết một đơn hàng.
+     */
+    public function viewOrder($id)
+    {
+        $order = DonHang::with(['chiTietDonHang.sanPham'])->findOrFail($id);
+        return view('admin.orders.vieworder', compact('order'));
+    }
+
+    /**
+     * (Admin) Cập nhật trạng thái đơn hàng + ngày giao.
      */
     public function update(Request $request, $id)
     {
-        // Validate trạng thái mới
         $request->validate([
-            'trangThaiDonHang' => 'required|in:cho_xac_nhan,dang_giao,da_giao',
+            'trangThaiDonHang' => 'required|in:cho_xac_nhan,dang_giao,da_giao,huy',
         ]);
 
         $order = DonHang::findOrFail($id);
         $oldStatus = $order->trangThaiDonHang;
         $newStatus = $request->trangThaiDonHang;
 
-        // Nếu chuyển từ "cho_xac_nhan" sang "dang_giao" => đặt ngày giao dự kiến (2 ngày sau)
+        // Nếu chuyển từ "cho_xac_nhan" -> "dang_giao"
         if ($oldStatus === 'cho_xac_nhan' && $newStatus === 'dang_giao') {
             $order->ngay_du_kien_giao = now()->addDays(2);
         }
-
-        // Nếu chuyển từ "dang_giao" sang "da_giao" => đặt ngày giao thực tế = hiện tại
+        // Nếu chuyển "dang_giao" -> "da_giao"
         if ($oldStatus === 'dang_giao' && $newStatus === 'da_giao') {
             $order->ngay_giao_thuc_te = now();
         }
 
-        $order->trangThaiDonHang = $newStatus;
+        // Nếu admin chọn "huy"
+        if ($newStatus === 'huy' && $oldStatus === 'cho_xac_nhan') {
+            $order->trangThaiDonHang = 'huy';
+        } else {
+            $order->trangThaiDonHang = $newStatus;
+        }
+
         $order->save();
 
-        return redirect()->route('admin.orders.index')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+        return redirect()->route('admin.orders.index')
+            ->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+    }
+
+    /**
+     * (Admin) Hủy đơn hàng (nếu muốn tách route admin riêng).
+     */
+    public function adminCancelOrder($id)
+    {
+        $order = DonHang::findOrFail($id);
+
+        if ($order->trangThaiDonHang !== 'cho_xac_nhan') {
+            return redirect()->route('admin.orders.index')
+                ->with('error', 'Chỉ đơn hàng chờ xác nhận mới có thể hủy!');
+        }
+
+        $order->trangThaiDonHang = 'huy';
+        $order->save();
+
+        return redirect()->route('admin.orders.index')
+            ->with('success', 'Đã hủy đơn hàng #' . $id);
     }
 }
