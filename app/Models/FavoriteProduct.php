@@ -22,7 +22,8 @@ class FavoriteProduct extends Model
     // Quan hệ với sản phẩm (Product)
     public function product()
     {
-        // Giả sử model sản phẩm của bạn là Product và khóa chính trong bảng products là 'id_sanPham'
-        return $this->belongsTo(Product::class, 'product_id', 'id_sanPham');
+        // Đảm bảo khóa chính của bảng products là 'id_sanPham'
+        return $this->belongsTo(Product::class, 'product_id', 'id_sanPham')
+                    ->select(['id_sanPham', 'urlHinhAnh', 'thuongHieu', 'tenSanPham', 'gia']);
     }
 }

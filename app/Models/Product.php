@@ -26,6 +26,7 @@ class Product extends Model
 
     protected $casts = [
         'gia' => 'decimal:2',
+        'soSaoDanhGia' => 'float',
     ];
 
     public function danhMuc()

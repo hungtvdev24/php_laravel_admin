@@ -19,20 +19,30 @@ class FavoriteController extends Controller
             ->where('user_id', $user->id)
             ->get();
 
+        // Nếu không có sản phẩm yêu thích, trả về danh sách rỗng thay vì lỗi 404
+        if ($favorites->isEmpty()) {
+            return response()->json([
+                'favorites' => []
+            ], 200);
+        }
+
+        // Trả về danh sách sản phẩm yêu thích với thông tin sản phẩm
         return response()->json([
-            'favorites' => $favorites
+            'favorites' => $favorites->map(function ($favorite) {
+                return $favorite->product; // Trả về trực tiếp thông tin sản phẩm
+            })
         ], 200);
     }
 
     /**
      * Thêm một sản phẩm vào danh sách yêu thích của người dùng.
      */
-    public function store(Request $request)
+    public function add(Request $request, $productId)
     {
         $user = $request->user();
 
         // Validate yêu cầu
-        $validator = Validator::make($request->all(), [
+        $validator = Validator::make(['product_id' => $productId], [
             'product_id' => 'required|exists:products,id_sanPham',
         ]);
 
@@ -42,7 +52,7 @@ class FavoriteController extends Controller
 
         // Kiểm tra sản phẩm đã có trong danh sách yêu thích hay chưa
         $existing = FavoriteProduct::where('user_id', $user->id)
-            ->where('product_id', $request->product_id)
+            ->where('product_id', $productId)
             ->first();
 
         if ($existing) {
@@ -51,24 +61,27 @@ class FavoriteController extends Controller
 
         $favorite = FavoriteProduct::create([
             'user_id'    => $user->id,
-            'product_id' => $request->product_id,
+            'product_id' => $productId,
         ]);
+
+        // Tải lại thông tin sản phẩm để trả về
+        $favorite->load('product');
 
         return response()->json([
             'message'  => 'Thêm sản phẩm yêu thích thành công',
-            'favorite' => $favorite,
+            'favorite' => $favorite->product,
         ], 201);
     }
 
     /**
      * Xóa một sản phẩm khỏi danh sách yêu thích của người dùng.
      */
-    public function destroy(Request $request, $id)
+    public function remove(Request $request, $productId)
     {
         $user = $request->user();
 
-        $favorite = FavoriteProduct::where('id', $id)
-            ->where('user_id', $user->id)
+        $favorite = FavoriteProduct::where('user_id', $user->id)
+            ->where('product_id', $productId)
             ->first();
 
         if (!$favorite) {

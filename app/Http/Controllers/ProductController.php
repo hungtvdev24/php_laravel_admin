@@ -18,7 +18,6 @@ class ProductController extends Controller
         // Yêu cầu xác thực Sanctum cho các API liên quan đến giỏ hàng
         $this->middleware('auth:sanctum')->only([
             'addToCart', 'getCart',
-            // Thêm 2 hàm dưới
             'updateCartItem', 'removeCartItem'
         ]);
     }
@@ -286,7 +285,7 @@ class ProductController extends Controller
     }
 
     /**
-     * **(MỚI)** Cập nhật số lượng 1 mục giỏ hàng
+     * Cập nhật số lượng 1 mục giỏ hàng
      */
     public function updateCartItem(Request $request, $idMucGioHang)
     {
@@ -314,7 +313,6 @@ class ProductController extends Controller
 
             // Cập nhật số lượng
             $muc->soLuong = $request->soLuong;
-            // Nếu muốn cập nhật lại giá => $muc->gia = ...
             $muc->save();
 
             return response()->json(['message' => 'Cập nhật thành công'], 200);
@@ -324,7 +322,7 @@ class ProductController extends Controller
     }
 
     /**
-     * **(MỚI)** Xoá 1 mục giỏ hàng
+     * Xoá 1 mục giỏ hàng
      */
     public function removeCartItem(Request $request, $idMucGioHang)
     {

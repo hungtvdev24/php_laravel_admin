@@ -153,6 +153,61 @@ class AuthController extends Controller
     }
 
     /**
+     * Cập nhật thông tin người dùng (User) qua API
+     */
+    public function updateUser(Request $request)
+    {
+        $user = $request->user(); // Lấy người dùng hiện tại
+
+        // Xác thực dữ liệu đầu vào
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'phone' => 'sometimes|string|max:15',
+            'tuoi' => 'nullable|integer|min:0',
+            'old_password' => 'required_with:password|string|min:6', // Mật khẩu cũ bắt buộc nếu có mật khẩu mới
+            'password' => 'sometimes|string|min:6', // Mật khẩu mới
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 400);
+        }
+
+        // Kiểm tra mật khẩu cũ nếu có yêu cầu thay đổi mật khẩu
+        if ($request->has('password')) {
+            if (!Hash::check($request->old_password, $user->password)) {
+                return response()->json([
+                    'error' => ['old_password' => 'Mật khẩu cũ không đúng']
+                ], 400);
+            }
+            $user->password = Hash::make($request->password);
+        }
+
+        // Cập nhật các trường được gửi trong request (trừ email)
+        if ($request->has('name')) {
+            $user->name = $request->name;
+        }
+        if ($request->has('phone')) {
+            $user->phone = $request->phone;
+        }
+        if ($request->has('tuoi')) {
+            $user->tuoi = $request->tuoi;
+        }
+
+        $user->save();
+
+        return response()->json([
+            'message' => 'Cập nhật thông tin người dùng thành công',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'tuoi' => $user->tuoi,
+            ],
+        ], 200);
+    }
+
+    /**
      * Lấy danh sách tất cả người dùng (User) qua API (yêu cầu xác thực)
      */
     public function getUsers()

@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\FavoriteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::get('/user', [AuthController::class, 'getUser']);
+    Route::put('/user/update', [AuthController::class, 'updateUser']); // New route for updating user info
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Sản phẩm
@@ -53,4 +55,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/addresses/{id_diaChi}', [AddressController::class, 'show']);
     Route::put('/addresses/{id_diaChi}', [AddressController::class, 'update']);
     Route::delete('/addresses/{id_diaChi}', [AddressController::class, 'destroy']);
+
+    // Sản phẩm yêu thích
+    Route::get('/favorite', [FavoriteController::class, 'index']);
+    Route::post('/favorite/add/{productId}', [FavoriteController::class, 'add']);
+    Route::post('/favorite/remove/{productId}', [FavoriteController::class, 'remove']);
 });
