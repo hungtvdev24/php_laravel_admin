@@ -24,4 +24,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(GioHang::class, 'id_nguoiDung', 'id');
     }
+
+    // Quan hệ nhiều-nhiều với Notification
+    public function notifications()
+    {
+        return $this->belongsToMany(Notification::class, 'notification_user')
+                    ->withPivot('is_read')
+                    ->withTimestamps();
+    }
 }

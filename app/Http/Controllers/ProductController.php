@@ -159,6 +159,38 @@ class ProductController extends Controller
     }
 
     /**
+     * Tìm kiếm sản phẩm (API cho Flutter)
+     */
+    public function search(Request $request)
+    {
+        try {
+            $query = $request->query('query', '');
+
+            if (empty($query)) {
+                return response()->json(['products' => []], 200);
+            }
+
+            $products = Product::where('tenSanPham', 'LIKE', "%{$query}%")
+                ->where('trangThai', 'active')
+                ->get(['id_sanPham', 'tenSanPham', 'gia', 'urlHinhAnh'])
+                ->map(function ($product) {
+                    $originalUrl = $product->getOriginal('urlHinhAnh');
+                    $product->urlHinhAnh = $originalUrl && Storage::disk('public')->exists($originalUrl)
+                        ? asset('storage/' . $originalUrl)
+                        : asset('images/default.png');
+                    return $product;
+                });
+
+            return response()->json([
+                'products' => $products
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error in search: ' . $e->getMessage());
+            return response()->json(['error' => 'Internal Server Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Lấy danh sách sản phẩm phổ biến (API cho Flutter)
      */
     public function getPopularProducts()

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 class DanhMucController extends Controller
 {
     /**
-     * Hiển thị danh sách danh mục
+     * Hiển thị danh sách danh mục (cho admin)
      */
     public function index()
     {
@@ -18,7 +18,7 @@ class DanhMucController extends Controller
     }
 
     /**
-     * Hiển thị form thêm danh mục
+     * Hiển thị form thêm danh mục (cho admin)
      */
     public function create()
     {
@@ -26,7 +26,7 @@ class DanhMucController extends Controller
     }
 
     /**
-     * Xử lý lưu danh mục vào database
+     * Xử lý lưu danh mục vào database (cho admin)
      */
     public function store(Request $request)
     {
@@ -55,7 +55,7 @@ class DanhMucController extends Controller
     }
 
     /**
-     * Hiển thị form chỉnh sửa danh mục
+     * Hiển thị form chỉnh sửa danh mục (cho admin)
      */
     public function edit($id_danhMuc)
     {
@@ -64,7 +64,7 @@ class DanhMucController extends Controller
     }
 
     /**
-     * Xử lý cập nhật danh mục
+     * Xử lý cập nhật danh mục (cho admin)
      */
     public function update(Request $request, $id_danhMuc)
     {
@@ -95,7 +95,7 @@ class DanhMucController extends Controller
     }
 
     /**
-     * Xóa danh mục
+     * Xóa danh mục (cho admin)
      */
     public function destroy($id_danhMuc)
     {
@@ -107,6 +107,19 @@ class DanhMucController extends Controller
             return redirect()->back()->with('error', 'Lỗi khi xóa danh mục: ' . $e->getMessage());
         }
     }
-    
 
+    /**
+     * API: Lấy danh sách danh mục (công khai)
+     */
+    public function getCategories()
+    {
+        try {
+            $danhMucs = DanhMuc::select('id_danhMuc', 'tenDanhMuc', 'moTa')
+                ->orderBy('id_danhMuc', 'desc')
+                ->get();
+            return response()->json($danhMucs, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Lỗi khi lấy danh sách danh mục: ' . $e->getMessage()], 500);
+        }
+    }
 }

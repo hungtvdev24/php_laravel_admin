@@ -6,6 +6,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\DanhMucController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 // Chuyển hướng trang chủ đến trang đăng nhập
@@ -23,6 +24,7 @@ Route::post('/admin/logout', [AuthController::class, 'logoutAdmin'])->name('admi
 
 // Middleware bảo vệ Admin
 Route::middleware(['admin'])->group(function () {
+    // Dashboard
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 
     // Quản lý người dùng
@@ -50,7 +52,18 @@ Route::middleware(['admin'])->group(function () {
     });
 
     // Quản lý tiếp thị liên kết (Affiliate)
-    Route::get('/admin/affiliate', [AdminController::class, 'manageAffiliate'])->name('admin.affiliate.index');
+    Route::prefix('/admin/affiliate')->group(function () {
+        // Route cũ: Hiển thị danh sách affiliate
+        Route::get('/', [AdminController::class, 'manageAffiliate'])->name('admin.affiliate.index');
+
+        // Route mới: Quản lý thông báo (notifications)
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotificationController::class, 'indexAdmin'])->name('admin.affiliate.notifications.index'); // Danh sách thông báo
+            Route::get('/create', [NotificationController::class, 'createAdmin'])->name('admin.affiliate.notifications.create'); // Tạo thông báo mới
+            Route::post('/store', [NotificationController::class, 'storeAdmin'])->name('admin.affiliate.notifications.store'); // Lưu thông báo mới
+            Route::get('/{id}', [NotificationController::class, 'showAdmin'])->name('admin.affiliate.notifications.detail'); // Xem chi tiết thông báo
+        });
+    });
 
     // Quản lý chiến dịch
     Route::get('/admin/campaigns', [AdminController::class, 'manageCampaigns'])->name('admin.campaigns.index');
@@ -67,25 +80,17 @@ Route::middleware(['admin'])->group(function () {
     // Quản lý nhân viên
     Route::get('/admin/employees', [EmployeeController::class, 'index'])->name('admin.employees.index');
 
-    // ================== QUẢN LÝ ĐƠN HÀNG ==================
-    // Danh sách đơn hàng
-    Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
-
-    // Xem chi tiết đơn hàng
-    Route::get('/admin/orders/{id}/view', [OrderController::class, 'viewOrder'])->name('admin.orders.view');
-
-    // Cập nhật trạng thái đơn hàng
-    Route::put('/admin/orders/{id}', [OrderController::class, 'update'])->name('admin.orders.update');
-
-    // **Route hủy đơn hàng** (cho Admin)
-    Route::post('/admin/orders/{id}/cancel', [OrderController::class, 'adminCancelOrder'])
-         ->name('admin.orders.cancel');
+    // Quản lý đơn hàng
+    Route::prefix('/admin/orders')->group(function () {
+        Route::get('/', [OrderController::class, 'index'])->name('admin.orders.index'); // Danh sách đơn hàng
+        Route::get('/{id}/view', [OrderController::class, 'viewOrder'])->name('admin.orders.view'); // Xem chi tiết đơn hàng
+        Route::put('/{id}', [OrderController::class, 'update'])->name('admin.orders.update'); // Cập nhật trạng thái đơn hàng
+        Route::post('/{id}/cancel', [OrderController::class, 'adminCancelOrder'])->name('admin.orders.cancel'); // Hủy đơn hàng
+    });
 
     // Quản lý khuyến mãi
     Route::get('/admin/promotions', [AdminController::class, 'managePromotions'])->name('admin.promotions.index');
 
     // Quản lý thống kê
-    
     Route::get('/admin/statistics', [AdminController::class, 'statisticsOrders'])->name('admin.statistics.index');
-    
 });

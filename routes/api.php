@@ -6,6 +6,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\DanhMucController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,16 +24,17 @@ use App\Http\Controllers\FavoriteController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// 2) Route công khai ví dụ: Lấy danh sách sản phẩm phổ biến
+// 2) Route công khai ví dụ: Lấy danh sách sản phẩm phổ biến, tìm kiếm, và danh mục
 Route::get('/products/popular-public', [ProductController::class, 'getPopularProducts']);
+Route::get('/search', [ProductController::class, 'search']);
+Route::get('/categories', [DanhMucController::class, 'getCategories']); // Thêm route lấy danh sách danh mục
 
 // 3) Routes yêu cầu xác thực (middleware 'auth:sanctum')
 Route::middleware('auth:sanctum')->group(function () {
-
     // Auth
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::get('/user', [AuthController::class, 'getUser']);
-    Route::put('/user/update', [AuthController::class, 'updateUser']); // New route for updating user info
+    Route::put('/user/update', [AuthController::class, 'updateUser']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Sản phẩm
@@ -60,4 +63,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/favorite', [FavoriteController::class, 'index']);
     Route::post('/favorite/add/{productId}', [FavoriteController::class, 'add']);
     Route::post('/favorite/remove/{productId}', [FavoriteController::class, 'remove']);
+
+    // Thông báo (cho người dùng)
+    Route::get('/notifications', [NotificationController::class, 'index']); // Xem danh sách thông báo
+    Route::post('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']); // Đánh dấu đã đọc
+});
+
+// 4) Routes cho admin (có thể thêm middleware 'admin' nếu bạn đã thiết lập)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/admin/notifications', [NotificationController::class, 'store']); // Admin tạo thông báo
 });

@@ -175,22 +175,23 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <h2>Quản trị</h2>
-        <a href="{{ route('admin.dashboard') }}" class="{{ Request::is('admin/dashboard') ? 'active' : '' }}"><i class="fas fa-tachometer-alt"></i>  Dashboard</a>
-        <a href="{{ route('admin.users.index') }}" class="{{ Request::is('admin/users*') ? 'active' : '' }}"><i class="fas fa-users"></i>  Quản lý Users</a>
-        <a href="{{ route('admin.transactions.index') }}" class="{{ Request::is('admin/transactions*') ? 'active' : '' }}"><i class="fas fa-exchange-alt"></i>  Giao dịch</a>
-        <a href="{{ route('admin.services.index') }}" class="{{ Request::is('admin/services*') ? 'active' : '' }}"><i class="fas fa-tools"></i>  Dịch vụ</a>
-        <a href="{{ route('admin.affiliate.index') }}" class="{{ Request::is('admin/affiliate*') ? 'active' : '' }}"><i class="fas fa-link"></i>  Affiliate</a>
-        <a href="{{ route('admin.campaigns.index') }}" class="{{ Request::is('admin/campaigns*') ? 'active' : '' }}"><i class="fas fa-bullhorn"></i>  Chiến dịch</a>
+        <a href="{{ route('admin.dashboard') }}" class="{{ Request::is('admin/dashboard') ? 'active' : '' }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+        <a href="{{ route('admin.users.index') }}" class="{{ Request::is('admin/users*') ? 'active' : '' }}"><i class="fas fa-users"></i> Quản lý Users</a>
+        <a href="{{ route('admin.transactions.index') }}" class="{{ Request::is('admin/transactions*') ? 'active' : '' }}"><i class="fas fa-exchange-alt"></i> Giao dịch</a>
+        <a href="{{ route('admin.services.index') }}" class="{{ Request::is('admin/services*') ? 'active' : '' }}"><i class="fas fa-tools"></i> Dịch vụ</a>
+        <a href="{{ route('admin.affiliate.index') }}" class="{{ Request::is('admin/affiliate*') ? 'active' : '' }}"><i class="fas fa-link"></i> Affiliate</a>
+        <a href="{{ route('admin.affiliate.notifications.index') }}" class="{{ Request::is('admin/affiliate/notifications*') ? 'active' : '' }}"><i class="fas fa-bell"></i> Thông báo Affiliate</a>
+        <a href="{{ route('admin.campaigns.index') }}" class="{{ Request::is('admin/campaigns*') ? 'active' : '' }}"><i class="fas fa-bullhorn"></i> Chiến dịch</a>
         
         <!-- Thêm các liên kết cho các thư mục mới -->
         <h3 style="margin-top: 20px; font-size: 16px; color: #e6f3ff;">Quản lý Dữ liệu</h3>
-        <a href="{{ route('admin.customers.index') }}" class="{{ Request::is('admin/customers*') ? 'active' : '' }}"><i class="fas fa-user-friends"></i>  Khách hàng</a>
-        <a href="{{ route('admin.employees.index') }}" class="{{ Request::is('admin/employees*') ? 'active' : '' }}"><i class="fas fa-user-tie"></i>  Nhân viên</a>
-        <a href="{{ route('admin.orders.index') }}" class="{{ Request::is('admin/orders*') ? 'active' : '' }}"><i class="fas fa-box"></i>  Đơn hàng</a>
-        <a href="{{ route('admin.products.index') }}" class="{{ Request::is('admin/products*') ? 'active' : '' }}"><i class="fas fa-box-open"></i>  Sản phẩm</a>
-        <a href="{{ route('admin.promotions.index') }}" class="{{ Request::is('admin/promotions*') ? 'active' : '' }}"><i class="fas fa-gift"></i>  Khuyến mãi</a>
-        <a href="{{ route('admin.statistics.index') }}" class="{{ Request::is('admin/statistics*') ? 'active' : '' }}"><i class="fas fa-chart-bar"></i>  Thống kê</a>
-        <a href="{{ route('admin.danhmucs.index') }}" class="{{ Request::is('admin/danhmucs*') ? 'active' : '' }}"><i class="fas fa-list"></i>  Danh mục</a>
+        <a href="{{ route('admin.customers.index') }}" class="{{ Request::is('admin/customers*') ? 'active' : '' }}"><i class="fas fa-user-friends"></i> Khách hàng</a>
+        <a href="{{ route('admin.employees.index') }}" class="{{ Request::is('admin/employees*') ? 'active' : '' }}"><i class="fas fa-user-tie"></i> Nhân viên</a>
+        <a href="{{ route('admin.orders.index') }}" class="{{ Request::is('admin/orders*') ? 'active' : '' }}"><i class="fas fa-box"></i> Đơn hàng</a>
+        <a href="{{ route('admin.products.index') }}" class="{{ Request::is('admin/products*') ? 'active' : '' }}"><i class="fas fa-box-open"></i> Sản phẩm</a>
+        <a href="{{ route('admin.promotions.index') }}" class="{{ Request::is('admin/promotions*') ? 'active' : '' }}"><i class="fas fa-gift"></i> Khuyến mãi</a>
+        <a href="{{ route('admin.statistics.index') }}" class="{{ Request::is('admin/statistics*') ? 'active' : '' }}"><i class="fas fa-chart-bar"></i> Thống kê</a>
+        <a href="{{ route('admin.danhmucs.index') }}" class="{{ Request::is('admin/danhmucs*') ? 'active' : '' }}"><i class="fas fa-list"></i> Danh mục</a>
     </div>
 
     <!-- Nội dung chính -->
