@@ -2,38 +2,39 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\DanhMucController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
-// Chuyển hướng trang chủ đến trang đăng nhập
+// Redirect root URL to login page
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Đăng nhập và đăng xuất Admin
+// Login route
 Route::get('/login', function () {
     return view('auth.login');
 })->name('login');
 
+// Admin authentication routes
 Route::post('/admin/login', [AuthController::class, 'loginAdmin'])->name('admin.login');
 Route::post('/admin/logout', [AuthController::class, 'logoutAdmin'])->name('admin.logout');
 
-// Middleware bảo vệ Admin
-Route::middleware(['admin'])->group(function () {
-    // Dashboard
-    Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+// Admin routes (protected by 'admin' middleware)
+Route::middleware(['admin'])->prefix('/admin')->group(function () {
+    // Dashboard routes
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/dashboard/filter', [AdminController::class, 'filterDashboard'])->name('admin.dashboard.filter');
 
-    // Quản lý người dùng
-    Route::get('/admin/users', [AdminController::class, 'manageUsers'])->name('admin.users.index');
-    Route::delete('/admin/users/{id}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
+    // User management routes
+    Route::get('/users', [AdminController::class, 'manageUsers'])->name('admin.users.index');
+    Route::delete('/users/{id}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
 
-    // Quản lý sản phẩm
-    Route::prefix('/admin/products')->group(function () {
-        Route::get('/', [ProductController::class, 'index'])->name('admin.products.index');
+    // Product management routes
+    Route::prefix('/products')->group(function () {
+        Route::get('/', [AdminController::class, 'manageProducts'])->name('admin.products.index');
         Route::get('/create', [ProductController::class, 'create'])->name('admin.products.create');
         Route::post('/', [ProductController::class, 'store'])->name('admin.products.store');
         Route::get('/{id}/edit', [ProductController::class, 'edit'])->name('admin.products.edit');
@@ -41,8 +42,8 @@ Route::middleware(['admin'])->group(function () {
         Route::delete('/{id}', [ProductController::class, 'destroy'])->name('admin.products.destroy');
     });
 
-    // Quản lý danh mục
-    Route::prefix('/admin/danhmucs')->group(function () {
+    // Category (DanhMuc) management routes
+    Route::prefix('/danhmucs')->group(function () {
         Route::get('/', [DanhMucController::class, 'index'])->name('admin.danhmucs.index');
         Route::get('/create', [DanhMucController::class, 'create'])->name('admin.danhmucs.create');
         Route::post('/', [DanhMucController::class, 'store'])->name('admin.danhmucs.store');
@@ -51,46 +52,53 @@ Route::middleware(['admin'])->group(function () {
         Route::delete('/{id_danhMuc}', [DanhMucController::class, 'destroy'])->name('admin.danhmucs.destroy');
     });
 
-    // Quản lý tiếp thị liên kết (Affiliate)
-    Route::prefix('/admin/affiliate')->group(function () {
-        // Route cũ: Hiển thị danh sách affiliate
+    // Affiliate management routes
+    Route::prefix('/affiliate')->group(function () {
         Route::get('/', [AdminController::class, 'manageAffiliate'])->name('admin.affiliate.index');
 
-        // Route mới: Quản lý thông báo (notifications)
+        // Notification management routes
         Route::prefix('notifications')->group(function () {
-            Route::get('/', [NotificationController::class, 'indexAdmin'])->name('admin.affiliate.notifications.index'); // Danh sách thông báo
-            Route::get('/create', [NotificationController::class, 'createAdmin'])->name('admin.affiliate.notifications.create'); // Tạo thông báo mới
-            Route::post('/store', [NotificationController::class, 'storeAdmin'])->name('admin.affiliate.notifications.store'); // Lưu thông báo mới
-            Route::get('/{id}', [NotificationController::class, 'showAdmin'])->name('admin.affiliate.notifications.detail'); // Xem chi tiết thông báo
+            Route::get('/', [NotificationController::class, 'indexAdmin'])->name('admin.affiliate.notifications.index');
+            Route::get('/create', [NotificationController::class, 'createAdmin'])->name('admin.affiliate.notifications.create');
+            Route::post('/', [NotificationController::class, 'storeAdmin'])->name('admin.affiliate.notifications.store'); // Sửa từ '/store' thành '/' để nhất quán
+            Route::get('/{id}', [NotificationController::class, 'showAdmin'])->name('admin.affiliate.notifications.detail');
+            Route::delete('/{id}', [NotificationController::class, 'destroyAdmin'])->name('admin.affiliate.notifications.destroy'); // Thêm route DELETE
         });
     });
 
-    // Quản lý chiến dịch
-    Route::get('/admin/campaigns', [AdminController::class, 'manageCampaigns'])->name('admin.campaigns.index');
+    // Campaign management routes
+    Route::get('/campaigns', [AdminController::class, 'manageCampaigns'])->name('admin.campaigns.index');
 
-    // Quản lý dịch vụ
-    Route::get('/admin/services', [AdminController::class, 'manageServices'])->name('admin.services.index');
+    // Service management routes
+    Route::get('/services', [AdminController::class, 'manageServices'])->name('admin.services.index');
 
-    // Quản lý giao dịch
-    Route::get('/admin/transactions', [AdminController::class, 'manageTransactions'])->name('admin.transactions.index');
+    // Transaction management routes
+    Route::get('/transactions', [AdminController::class, 'manageTransactions'])->name('admin.transactions.index');
 
-    // Quản lý khách hàng
-    Route::get('/admin/customers', [AdminController::class, 'manageCustomers'])->name('admin.customers.index');
+    // Customer management routes
+    Route::get('/customers', [AdminController::class, 'manageCustomers'])->name('admin.customers.index');
 
-    // Quản lý nhân viên
-    Route::get('/admin/employees', [EmployeeController::class, 'index'])->name('admin.employees.index');
-
-    // Quản lý đơn hàng
-    Route::prefix('/admin/orders')->group(function () {
-        Route::get('/', [OrderController::class, 'index'])->name('admin.orders.index'); // Danh sách đơn hàng
-        Route::get('/{id}/view', [OrderController::class, 'viewOrder'])->name('admin.orders.view'); // Xem chi tiết đơn hàng
-        Route::put('/{id}', [OrderController::class, 'update'])->name('admin.orders.update'); // Cập nhật trạng thái đơn hàng
-        Route::post('/{id}/cancel', [OrderController::class, 'adminCancelOrder'])->name('admin.orders.cancel'); // Hủy đơn hàng
+    // Employee management routes
+    Route::prefix('/employees')->group(function () {
+        Route::get('/', [AdminController::class, 'manageEmployees'])->name('admin.employees.index');
+        Route::get('/create', [AdminController::class, 'createEmployee'])->name('admin.employees.create');
+        Route::post('/', [AdminController::class, 'storeEmployee'])->name('admin.employees.store');
+        Route::get('/{id}/edit', [AdminController::class, 'editEmployee'])->name('admin.employees.edit');
+        Route::put('/{id}', [AdminController::class, 'updateEmployee'])->name('admin.employees.update');
+        Route::delete('/{id}', [AdminController::class, 'destroyEmployee'])->name('admin.employees.destroy');
     });
 
-    // Quản lý khuyến mãi
-    Route::get('/admin/promotions', [AdminController::class, 'managePromotions'])->name('admin.promotions.index');
+    // Order management routes
+    Route::prefix('/orders')->group(function () {
+        Route::get('/', [AdminController::class, 'manageOrders'])->name('admin.orders.index');
+        Route::get('/{id}/view', [AdminController::class, 'orderDetails'])->name('admin.orders.view');
+        Route::put('/{id}', [AdminController::class, 'updateOrder'])->name('admin.orders.update');
+        Route::get('/{id}/export-invoice', [OrderController::class, 'exportInvoice'])->name('admin.orders.exportInvoice');
+    });
 
-    // Quản lý thống kê
-    Route::get('/admin/statistics', [AdminController::class, 'statisticsOrders'])->name('admin.statistics.index');
+    // Promotion management routes
+    Route::get('/promotions', [AdminController::class, 'managePromotions'])->name('admin.promotions.index');
+
+    // Statistics routes
+    Route::get('/statistics', [AdminController::class, 'statisticsOrders'])->name('admin.statistics.index');
 });

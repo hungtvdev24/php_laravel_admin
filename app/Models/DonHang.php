@@ -32,15 +32,24 @@ class DonHang extends Model
         'ngay_giao_thuc_te' => 'datetime',
     ];
 
-    // Quan hệ hasMany với ChiTietDonHang
     public function chiTietDonHang()
     {
         return $this->hasMany(ChiTietDonHang::class, 'id_donHang', 'id_donHang');
     }
 
-    // Quan hệ belongsTo với User (nếu cần)
     public function user()
     {
         return $this->belongsTo(User::class, 'id_nguoiDung', 'id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'id_donHang', 'id_donHang');
+    }
+
+    // Quan hệ với lịch sử trạng thái
+    public function statusHistory()
+    {
+        return $this->hasMany(OrderStatusHistory::class, 'id_donHang', 'id_donHang')->orderBy('ngayThayDoi', 'asc');
     }
 }

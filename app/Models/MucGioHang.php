@@ -13,6 +13,7 @@ class MucGioHang extends Model
     protected $fillable = [
         'id_gioHang',
         'id_sanPham',
+        'variation_id', // Thêm để hỗ trợ biến thể
         'soLuong',
         'gia',
     ];
@@ -25,5 +26,10 @@ class MucGioHang extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'id_sanPham', 'id_sanPham');
+    }
+
+    public function variation()
+    {
+        return $this->belongsTo(ProductVariation::class, 'variation_id', 'id');
     }
 }

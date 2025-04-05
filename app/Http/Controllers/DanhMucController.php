@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\DanhMuc;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class DanhMucController extends Controller
 {
@@ -48,6 +49,7 @@ class DanhMucController extends Controller
                 'moTa' => $request->moTa,
             ]);
         } catch (\Exception $e) {
+            Log::error('Error creating category: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Lỗi khi lưu danh mục: ' . $e->getMessage());
         }
 
@@ -88,6 +90,7 @@ class DanhMucController extends Controller
                 'moTa' => $request->moTa,
             ]);
         } catch (\Exception $e) {
+            Log::error('Error updating category: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Lỗi khi cập nhật danh mục: ' . $e->getMessage());
         }
 
@@ -104,6 +107,7 @@ class DanhMucController extends Controller
             $danhMuc->delete();
             return redirect()->route('admin.danhmucs.index')->with('success', 'Danh mục đã được xóa thành công!');
         } catch (\Exception $e) {
+            Log::error('Error deleting category: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Lỗi khi xóa danh mục: ' . $e->getMessage());
         }
     }
@@ -117,8 +121,10 @@ class DanhMucController extends Controller
             $danhMucs = DanhMuc::select('id_danhMuc', 'tenDanhMuc', 'moTa')
                 ->orderBy('id_danhMuc', 'desc')
                 ->get();
+            Log::info('Fetched categories', ['count' => $danhMucs->count(), 'data' => $danhMucs]);
             return response()->json($danhMucs, 200);
         } catch (\Exception $e) {
+            Log::error('Error fetching categories: ' . $e->getMessage());
             return response()->json(['error' => 'Lỗi khi lấy danh sách danh mục: ' . $e->getMessage()], 500);
         }
     }

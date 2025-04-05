@@ -24,6 +24,7 @@ class FavoriteProduct extends Model
     {
         // Đảm bảo khóa chính của bảng products là 'id_sanPham'
         return $this->belongsTo(Product::class, 'product_id', 'id_sanPham')
-                    ->select(['id_sanPham', 'urlHinhAnh', 'thuongHieu', 'tenSanPham', 'gia']);
+                    ->with(['variations.images'])
+                    ->select(['id_sanPham', 'thuongHieu', 'tenSanPham', 'gia']);
     }
 }

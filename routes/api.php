@@ -8,28 +8,25 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\DanhMucController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReviewController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-|
-| Dưới đây là các route cho API của bạn. Các route công khai (không cần xác thực)
-| được định nghĩa ở mục 1 và 2. Các route yêu cầu xác thực (middleware 'auth:sanctum')
-| được đặt trong nhóm middleware.
-|
 */
 
-// 1) Routes công khai
+// 1) Routes công khai cho người dùng thông thường (khách hàng)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// 2) Route công khai ví dụ: Lấy danh sách sản phẩm phổ biến, tìm kiếm, và danh mục
+// 2) Route công khai: Lấy danh sách sản phẩm phổ biến, tìm kiếm, danh mục, và đánh giá
 Route::get('/products/popular-public', [ProductController::class, 'getPopularProducts']);
 Route::get('/search', [ProductController::class, 'search']);
-Route::get('/categories', [DanhMucController::class, 'getCategories']); // Thêm route lấy danh sách danh mục
+Route::get('/categories', [DanhMucController::class, 'getCategories']);
+Route::get('/products/{id_sanPham}/reviews', [ReviewController::class, 'index']); // Xem đánh giá của sản phẩm (công khai)
 
-// 3) Routes yêu cầu xác thực (middleware 'auth:sanctum')
+// 3) Routes yêu cầu xác thực (middleware 'auth:sanctum') cho người dùng thông thường
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::get('/users', [AuthController::class, 'getUsers']);
@@ -60,16 +57,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/addresses/{id_diaChi}', [AddressController::class, 'destroy']);
 
     // Sản phẩm yêu thích
-    Route::get('/favorite', [FavoriteController::class, 'index']);
-    Route::post('/favorite/add/{productId}', [FavoriteController::class, 'add']);
-    Route::post('/favorite/remove/{productId}', [FavoriteController::class, 'remove']);
+    Route::get('/favorites', [FavoriteController::class, 'index']); // Lấy danh sách yêu thích
+    Route::post('/favorites/{productId}', [FavoriteController::class, 'add']); // Thêm sản phẩm yêu thích
+    Route::delete('/favorites/{productId}', [FavoriteController::class, 'remove']); // Xóa sản phẩm yêu thích
 
     // Thông báo (cho người dùng)
-    Route::get('/notifications', [NotificationController::class, 'index']); // Xem danh sách thông báo
-    Route::post('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']); // Đánh dấu đã đọc
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']);
+
+    // Đánh giá
+    Route::post('/reviews', [ReviewController::class, 'store']); // Gửi đánh giá
+    Route::get('/user/reviews', [ReviewController::class, 'userReviews']); // Xem đánh giá của người dùng hiện tại
 });
 
-// 4) Routes cho admin (có thể thêm middleware 'admin' nếu bạn đã thiết lập)
+// 4) Routes cho admin (qua API)
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/notifications', [NotificationController::class, 'store']); // Admin tạo thông báo
 });

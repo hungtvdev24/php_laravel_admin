@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Admin;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
@@ -35,7 +36,6 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // Tạo token cho người dùng (sử dụng Sanctum)
         $token = $user->createToken('API Token')->plainTextToken;
 
         return response()->json([
@@ -86,7 +86,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Đăng nhập Admin qua web (sử dụng session)
+     * Đăng nhập Admin hoặc Nhân viên qua web (sử dụng session)
      */
     public function loginAdmin(Request $request)
     {
@@ -99,28 +99,44 @@ class AuthController extends Controller
             return redirect()->back()->with('error', 'Vui lòng nhập đầy đủ thông tin.');
         }
 
+        // Kiểm tra trong bảng admins trước
         $admin = Admin::where('userNameAD', $request->userNameAD)->first();
-
-        if (!$admin || !Hash::check($request->passwordAD, $admin->passwordAD)) {
-            return redirect()->back()->with('error', 'Sai tài khoản hoặc mật khẩu');
+        if ($admin && Hash::check($request->passwordAD, $admin->passwordAD)) {
+            session([
+                'logged_in' => true,
+                'role' => 'admin',
+                'user_id' => $admin->id,
+                'username' => $admin->userNameAD,
+                'name' => $admin->userNameAD,
+            ]);
+            return redirect()->route('admin.dashboard')->with('success', 'Đăng nhập thành công với vai trò Admin');
         }
 
-        // Lưu session đăng nhập Admin
-        session([
-            'admin_logged_in' => true,
-            'roleID' => $admin->roleID,
-            'admin_id' => $admin->id
-        ]);
+        // Kiểm tra trong bảng employees
+        $employee = Employee::where('tenTaiKhoan', $request->userNameAD)->first();
+        if ($employee && Hash::check($request->passwordAD, $employee->matKhau)) {
+            if ($employee->trangThai !== 'active') {
+                return redirect()->back()->with('error', 'Tài khoản nhân viên không hoạt động.');
+            }
+            session([
+                'logged_in' => true,
+                'role' => 'employee',
+                'user_id' => $employee->id_nhanVien,
+                'username' => $employee->tenTaiKhoan,
+                'name' => $employee->tenNhanVien,
+            ]);
+            return redirect()->route('admin.dashboard')->with('success', 'Đăng nhập thành công với vai trò Nhân viên');
+        }
 
-        return redirect()->route('admin.dashboard')->with('success', 'Đăng nhập thành công');
+        return redirect()->back()->with('error', 'Sai tài khoản hoặc mật khẩu');
     }
 
     /**
-     * Đăng xuất Admin
+     * Đăng xuất Admin hoặc Nhân viên
      */
     public function logoutAdmin()
     {
-        session()->forget(['admin_logged_in', 'roleID', 'admin_id']);
+        session()->forget(['logged_in', 'role', 'user_id', 'username', 'name']);
         return redirect('/login')->with('success', 'Đăng xuất thành công');
     }
 
@@ -130,7 +146,6 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-
         return response()->json(['message' => 'Đăng xuất thành công'], 200);
     }
 
@@ -157,41 +172,30 @@ class AuthController extends Controller
      */
     public function updateUser(Request $request)
     {
-        $user = $request->user(); // Lấy người dùng hiện tại
+        $user = $request->user();
 
-        // Xác thực dữ liệu đầu vào
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
             'phone' => 'sometimes|string|max:15',
             'tuoi' => 'nullable|integer|min:0',
-            'old_password' => 'required_with:password|string|min:6', // Mật khẩu cũ bắt buộc nếu có mật khẩu mới
-            'password' => 'sometimes|string|min:6', // Mật khẩu mới
+            'old_password' => 'required_with:password|string|min:6',
+            'password' => 'sometimes|string|min:6',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['error' => $validator->errors()], 400);
         }
 
-        // Kiểm tra mật khẩu cũ nếu có yêu cầu thay đổi mật khẩu
         if ($request->has('password')) {
             if (!Hash::check($request->old_password, $user->password)) {
-                return response()->json([
-                    'error' => ['old_password' => 'Mật khẩu cũ không đúng']
-                ], 400);
+                return response()->json(['error' => ['old_password' => 'Mật khẩu cũ không đúng']], 400);
             }
             $user->password = Hash::make($request->password);
         }
 
-        // Cập nhật các trường được gửi trong request (trừ email)
-        if ($request->has('name')) {
-            $user->name = $request->name;
-        }
-        if ($request->has('phone')) {
-            $user->phone = $request->phone;
-        }
-        if ($request->has('tuoi')) {
-            $user->tuoi = $request->tuoi;
-        }
+        if ($request->has('name')) $user->name = $request->name;
+        if ($request->has('phone')) $user->phone = $request->phone;
+        if ($request->has('tuoi')) $user->tuoi = $request->tuoi;
 
         $user->save();
 
@@ -208,7 +212,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Lấy danh sách tất cả người dùng (User) qua API (yêu cầu xác thực)
+     * Lấy danh sách tất cả người dùng (User) qua API
      */
     public function getUsers()
     {
@@ -220,7 +224,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Lấy danh sách tất cả Admin qua API (yêu cầu xác thực admin, nếu cần)
+     * Lấy danh sách tất cả Admin qua API
      */
     public function getAdmins()
     {

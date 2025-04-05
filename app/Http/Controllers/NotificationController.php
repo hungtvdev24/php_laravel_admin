@@ -11,7 +11,7 @@ class NotificationController extends Controller
     // Hiển thị danh sách thông báo đã gửi (index)
     public function indexAdmin()
     {
-        $notifications = Notification::with('users')->latest()->get();
+        $notifications = Notification::with('users')->latest()->paginate(10); // Sử dụng paginate thay vì get
         return view('admin.affiliate.notifications.index', compact('notifications'));
     }
 
@@ -48,6 +48,16 @@ class NotificationController extends Controller
     {
         $notification = Notification::with('users')->findOrFail($id);
         return view('admin.affiliate.notifications.detail', compact('notification'));
+    }
+
+    // Xóa thông báo
+    public function destroyAdmin($id)
+    {
+        $notification = Notification::findOrFail($id);
+        $notification->users()->detach(); // Xóa mối quan hệ với users trong bảng pivot
+        $notification->delete(); // Xóa thông báo
+
+        return redirect()->route('admin.affiliate.notifications.index')->with('success', 'Thông báo đã được xóa thành công!');
     }
 
     // API: Xem danh sách thông báo của người dùng

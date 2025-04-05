@@ -15,13 +15,27 @@ class ChiTietDonHang extends Model
     protected $fillable = [
         'id_donHang',
         'id_sanPham',
+        'variation_id', // Thêm variation_id vào $fillable
         'soLuong',
         'gia'
     ];
 
-    // Quan hệ belongsTo với model Product (chỉnh sửa theo tên model của bạn)
+    protected $casts = [
+        'gia' => 'decimal:2',
+    ];
+
     public function sanPham()
     {
         return $this->belongsTo(Product::class, 'id_sanPham', 'id_sanPham');
+    }
+
+    public function variation()
+    {
+        return $this->belongsTo(ProductVariation::class, 'variation_id', 'id');
+    }
+
+    public function donHang()
+    {
+        return $this->belongsTo(DonHang::class, 'id_donHang', 'id_donHang');
     }
 }

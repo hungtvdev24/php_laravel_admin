@@ -32,4 +32,8 @@ class User extends Authenticatable
                     ->withPivot('is_read')
                     ->withTimestamps();
     }
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'id_nguoiDung', 'id');
+    }
 }

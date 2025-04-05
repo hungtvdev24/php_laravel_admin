@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Middleware\TrustProxies as Middleware;
@@ -10,9 +9,10 @@ class TrustProxies extends Middleware
     /**
      * The trusted proxies for this application.
      *
-     * @var array<int, string>|string|null
+     * @var array|string|null
      */
-    protected $proxies;
+    // Để tin cậy tất cả các proxy, bạn có thể đặt giá trị là '*'
+    protected $proxies = '*';
 
     /**
      * The headers that should be used to detect proxies.

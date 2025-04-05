@@ -77,6 +77,7 @@ class Kernel extends HttpKernel
         'auth:admin' => \App\Http\Middleware\AdminAuth::class, 
         'admin' => \App\Http\Middleware\AdminMiddleware::class, // Middleware Admin
         'auth' => \App\Http\Middleware\Authenticate::class,
+        'role' => \App\Http\Middleware\RoleMiddleware::class,
         
     ];
 }
