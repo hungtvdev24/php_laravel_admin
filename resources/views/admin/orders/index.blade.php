@@ -7,10 +7,10 @@
     <h1 class="h3 mb-4 text-warm-brown">Danh sách Đơn hàng</h1>
 
     @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+        <div class="alert alert-success" id="success-message">{{ session('success') }}</div>
     @endif
     @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+        <div class="alert alert-danger" id="error-message">{{ session('error') }}</div>
     @endif
 
     <!-- FORM TÌM KIẾM THEO SĐT -->
@@ -144,7 +144,7 @@
                         </thead>
                         <tbody>
                             @foreach($orders as $order)
-                                <tr>
+                                <tr data-order-id="{{ $order->id_donHang }}">
                                     <td>{{ $order->id_donHang }}</td>
                                     <td>{{ $order->ten_nguoiNhan }}</td>
                                     <td>{{ $order->sdt_nhanHang }}</td>
@@ -172,7 +172,7 @@
                                     </td>
                                     <td>{{ number_format($order->tongTien, 0, ',', '.') }} VNĐ</td>
                                     <td>{{ $order->phuongThucThanhToan }}</td>
-                                    <td>
+                                    <td class="status-cell" data-order-id="{{ $order->id_donHang }}">
                                         @if($order->trangThaiDonHang === 'cho_xac_nhan')
                                             <span class="badge bg-warning">Chờ xác nhận</span>
                                         @elseif($order->trangThaiDonHang === 'dang_giao')
@@ -195,29 +195,25 @@
                                             Xem chi tiết
                                         </a>
                                     </td>
-                                    <td>
+                                    <td class="update-cell">
                                         @if($order->trangThaiDonHang !== 'da_giao' && $order->trangThaiDonHang !== 'huy')
-                                            <form action="{{ route('admin.orders.update', $order->id_donHang) }}" method="POST" class="d-inline">
-                                                @csrf
-                                                @method('PUT')
-                                                <select name="trangThaiDonHang" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
-                                                    @if(session('role') === 'employee')
-                                                        @if($order->trangThaiDonHang === 'cho_xac_nhan')
-                                                            <option value="cho_xac_nhan" selected>Chờ xác nhận</option>
-                                                            <option value="dang_giao">Đang giao</option>
-                                                        @endif
-                                                    @else
-                                                        @if($order->trangThaiDonHang === 'cho_xac_nhan')
-                                                            <option value="cho_xac_nhan" selected>Chờ xác nhận</option>
-                                                            <option value="dang_giao">Đang giao</option>
-                                                            <option value="huy">Hủy</option>
-                                                        @elseif($order->trangThaiDonHang === 'dang_giao')
-                                                            <option value="dang_giao" selected>Đang giao</option>
-                                                            <option value="da_giao">Đã giao</option>
-                                                        @endif
+                                            <select name="trangThaiDonHang" class="form-select form-select-sm d-inline-block w-auto update-order-status" data-order-id="{{ $order->id_donHang }}">
+                                                @if(session('role') === 'employee')
+                                                    @if($order->trangThaiDonHang === 'cho_xac_nhan')
+                                                        <option value="cho_xac_nhan" selected>Chờ xác nhận</option>
+                                                        <option value="dang_giao">Đang giao</option>
                                                     @endif
-                                                </select>
-                                            </form>
+                                                @else
+                                                    @if($order->trangThaiDonHang === 'cho_xac_nhan')
+                                                        <option value="cho_xac_nhan" selected>Chờ xác nhận</option>
+                                                        <option value="dang_giao">Đang giao</option>
+                                                        <option value="huy">Hủy</option>
+                                                    @elseif($order->trangThaiDonHang === 'dang_giao')
+                                                        <option value="dang_giao" selected>Đang giao</option>
+                                                        <option value="da_giao">Đã giao</option>
+                                                    @endif
+                                                @endif
+                                            </select>
                                         @else
                                             <span class="text-muted">--</span>
                                         @endif
@@ -252,6 +248,59 @@
                 changeMonth: true,
                 changeYear: true,
                 yearRange: "2000:2030"
+            });
+
+            // Xử lý cập nhật trạng thái đơn hàng bằng AJAX
+            $('.update-order-status').on('change', function() {
+                var orderId = $(this).data('order-id');
+                var newStatus = $(this).val();
+                var statusCell = $(this).closest('tr').find('.status-cell');
+                var updateCell = $(this).closest('tr').find('.update-cell');
+
+                $.ajax({
+                    url: '/admin/orders/' + orderId,
+                    method: 'PUT',
+                    data: {
+                        trangThaiDonHang: newStatus,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        // Cập nhật trạng thái hiển thị mà không reload trang
+                        if (newStatus === 'cho_xac_nhan') {
+                            statusCell.html('<span class="badge bg-warning">Chờ xác nhận</span>');
+                        } else if (newStatus === 'dang_giao') {
+                            statusCell.html('<span class="badge bg-primary">Đang giao</span>');
+                        } else if (newStatus === 'da_giao') {
+                            statusCell.html('<span class="badge bg-success">Đã giao</span>');
+                        } else if (newStatus === 'huy') {
+                            statusCell.html('<span class="badge bg-danger">Đã hủy</span>');
+                        }
+
+                        // Hiển thị thông báo thành công
+                        $('#success-message').remove();
+                        $('#error-message').remove();
+                        $('h1').after('<div class="alert alert-success" id="success-message">' + response.message + '</div>');
+
+                        // Nếu trạng thái là 'da_giao' hoặc 'huy', ẩn select box
+                        if (newStatus === 'da_giao' || newStatus === 'huy') {
+                            updateCell.html('<span class="text-muted">--</span>');
+                        } else if (newStatus === 'dang_giao' && '{{ session("role") }}' !== 'employee') {
+                            // Cập nhật select box cho trạng thái "Đang giao" (chỉ admin)
+                            updateCell.html(`
+                                <select name="trangThaiDonHang" class="form-select form-select-sm d-inline-block w-auto update-order-status" data-order-id="${orderId}">
+                                    <option value="dang_giao" selected>Đang giao</option>
+                                    <option value="da_giao">Đã giao</option>
+                                </select>
+                            `);
+                        }
+                    },
+                    error: function(xhr) {
+                        // Hiển thị thông báo lỗi
+                        $('#success-message').remove();
+                        $('#error-message').remove();
+                        $('h1').after('<div class="alert alert-danger" id="error-message">Có lỗi xảy ra: ' + xhr.responseJSON.message + '</div>');
+                    }
+                });
             });
         });
     </script>

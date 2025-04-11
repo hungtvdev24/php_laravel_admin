@@ -16,17 +16,23 @@ class Review extends Model
         'id_nguoiDung',
         'id_sanPham',
         'id_donHang',
-        'variation_id', // Thêm variation_id
+        'variation_id',
         'soSao',
         'binhLuan',
         'urlHinhAnh',
         'ngayDanhGia',
+        'trangThai', // Thêm cột trangThai
     ];
 
     protected $casts = [
         'soSao' => 'integer',
         'ngayDanhGia' => 'datetime',
     ];
+
+    // Định nghĩa các trạng thái
+    const PENDING = 'pending';
+    const APPROVED = 'approved';
+    const REJECTED = 'rejected';
 
     public function user()
     {

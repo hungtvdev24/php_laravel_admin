@@ -306,6 +306,20 @@ class OrderController extends Controller
         $oldStatus = $order->trangThaiDonHang;
         $newStatus = $request->trangThaiDonHang;
 
+        // Kiểm tra quyền và trạng thái hợp lệ
+        if (auth()->user()->role === 'employee') {
+            if ($oldStatus === 'cho_xac_nhan' && $newStatus !== 'dang_giao') {
+                return response()->json(['message' => 'Nhân viên chỉ có thể chuyển trạng thái từ "Chờ xác nhận" sang "Đang giao".'], 403);
+            }
+        } else {
+            if ($oldStatus === 'cho_xac_nhan' && !in_array($newStatus, ['dang_giao', 'huy'])) {
+                return response()->json(['message' => 'Trạng thái không hợp lệ.'], 400);
+            }
+            if ($oldStatus === 'dang_giao' && $newStatus !== 'da_giao') {
+                return response()->json(['message' => 'Trạng thái không hợp lệ.'], 400);
+            }
+        }
+
         DB::beginTransaction();
         try {
             if ($oldStatus === 'cho_xac_nhan' && $newStatus === 'dang_giao') {
@@ -319,28 +333,21 @@ class OrderController extends Controller
                 }
             }
 
-            if ($newStatus === 'huy' && $oldStatus === 'cho_xac_nhan') {
-                $order->trangThaiDonHang = 'huy';
-            } else {
-                $order->trangThaiDonHang = $newStatus;
-            }
-
+            $order->trangThaiDonHang = $newStatus;
             $order->save();
 
             // Lưu lịch sử trạng thái
             OrderStatusHistory::create([
                 'id_donHang' => $order->id_donHang,
                 'trangThaiDonHang' => $newStatus,
-                'ghiChu' => "Được cập nhật từ trạng thái $oldStatus",
+                'ghiChu' => "Được cập nhật từ trạng thái $oldStatus bởi " . auth()->user()->name,
             ]);
 
             DB::commit();
-            return redirect()->route('admin.orders.index')
-                ->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+            return response()->json(['message' => 'Cập nhật trạng thái đơn hàng thành công!']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('admin.orders.index')
-                ->with('error', 'Cập nhật thất bại: ' . $e->getMessage());
+            return response()->json(['message' => 'Cập nhật thất bại: ' . $e->getMessage()], 500);
         }
     }
 

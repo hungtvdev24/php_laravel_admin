@@ -9,6 +9,7 @@ use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\DanhMucController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\API\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,7 +30,7 @@ Route::get('/products/{id_sanPham}/reviews', [ReviewController::class, 'index'])
 // 3) Routes yêu cầu xác thực (middleware 'auth:sanctum') cho người dùng thông thường
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
-    Route::get('/users', [AuthController::class, 'getUsers']);
+    Route::get('/users', [AuthController::class, 'users']); // Đổi tên để rõ ràng hơn
     Route::get('/user', [AuthController::class, 'getUser']);
     Route::put('/user/update', [AuthController::class, 'updateUser']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -68,6 +69,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Đánh giá
     Route::post('/reviews', [ReviewController::class, 'store']); // Gửi đánh giá
     Route::get('/user/reviews', [ReviewController::class, 'userReviews']); // Xem đánh giá của người dùng hiện tại
+
+    // Chat (gửi và nhận tin nhắn)
+    Route::post('/messages', [MessageController::class, 'sendMessage']);
+    Route::get('/messages/{receiverId}', [MessageController::class, 'getMessages']);
 });
 
 // 4) Routes cho admin (qua API)

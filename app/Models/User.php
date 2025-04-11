@@ -25,15 +25,27 @@ class User extends Authenticatable
         return $this->hasMany(GioHang::class, 'id_nguoiDung', 'id');
     }
 
-    // Quan hệ nhiều-nhiều với Notification
     public function notifications()
     {
         return $this->belongsToMany(Notification::class, 'notification_user')
                     ->withPivot('is_read')
                     ->withTimestamps();
     }
+
     public function reviews()
     {
         return $this->hasMany(Review::class, 'id_nguoiDung', 'id');
+    }
+
+    // Quan hệ 1-nhiều: Tin nhắn gửi đi
+    public function sentMessages()
+    {
+        return $this->hasMany(Message::class, 'sender_id', 'id');
+    }
+
+    // Quan hệ 1-nhiều: Tin nhắn nhận được
+    public function receivedMessages()
+    {
+        return $this->hasMany(Message::class, 'receiver_id', 'id');
     }
 }

@@ -20,7 +20,7 @@
                                 <th>Số điện thoại</th>
                                 <th>Tuổi</th>
                                 <th>Ngày tạo</th>
-                                <th>Thao tác</th>
+                                <!-- <th>Thao tác</th> -->
                             </tr>
                         </thead>
                         <tbody>
@@ -32,21 +32,21 @@
                                     <td class="user-phone">{{ $user->phone ?? '' }}</td>
                                     <td>{{ $user->tuoi ?? '❌ Chưa có dữ liệu' }}</td>
                                     <td>{{ $user->created_at->format('d/m/Y H:i') }}</td>
-                                    <td>
+                                    <!-- <td>
                                         <div class="d-flex gap-2 justify-content-center">
                                             <a href="#" class="btn btn-sm btn-outline-info shadow-sm">👁️ Xem</a>
                                             <a href="#" class="btn btn-sm btn-outline-warning shadow-sm">✏️ Sửa</a>
                                             <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="confirmDelete({{ $user->id }}, '{{ $user->name }}', '{{ $user->email }}', '{{ $user->phone }}')">🗑️ Xóa</button>
                                         </div>
-                                    </td>
+                                    </td> -->
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
-                <div class="text-end">
+                <!-- <div class="text-end">
                     <a href="#" class="btn btn-lg btn-warm-orange shadow mt-3">➕ Thêm Người dùng</a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>

@@ -177,6 +177,7 @@
         <h3 style="margin-top: 20px; font-size: 16px; color: #e6f3ff;">Quản lý Dữ liệu</h3>
         <a href="{{ route('admin.orders.index') }}" class="{{ Request::is('admin/orders*') ? 'active' : '' }}"><i class="fas fa-box"></i> Đơn hàng</a>
         <a href="{{ route('admin.products.index') }}" class="{{ Request::is('admin/products*') ? 'active' : '' }}"><i class="fas fa-box-open"></i> Sản phẩm</a>
+        <a href="{{ route('admin.reviews.index') }}" class="{{ Request::is('admin/reviews*') ? 'active' : '' }}"><i class="fas fa-comment"></i> Bình luận</a>
 
         <!-- Nút Đăng xuất -->
         <form action="{{ route('admin.logout') }}" method="POST" style="margin-top: auto;">

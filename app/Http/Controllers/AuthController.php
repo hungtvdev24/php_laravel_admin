@@ -10,11 +10,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     /**
-     * Đăng ký người dùng (User)
+     * Đăng ký người dùng (User) qua API
      */
     public function register(Request $request)
     {
@@ -90,18 +91,27 @@ class AuthController extends Controller
      */
     public function loginAdmin(Request $request)
     {
+        // Log để debug thông tin đăng nhập
+        Log::info('Login attempt (Admin/Employee)', [
+            'request_data' => $request->all(),
+            'session_data' => session()->all(),
+            'csrf_token' => $request->input('_token'),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'userNameAD' => 'required|string',
             'passwordAD' => 'required|string|min:6',
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()->with('error', 'Vui lòng nhập đầy đủ thông tin.');
+            Log::warning('Validation failed for loginAdmin', ['errors' => $validator->errors()]);
+            return redirect()->back()->with('error', 'Vui lòng nhập đầy đủ thông tin.')->withErrors($validator);
         }
 
         // Kiểm tra trong bảng admins trước
         $admin = Admin::where('userNameAD', $request->userNameAD)->first();
         if ($admin && Hash::check($request->passwordAD, $admin->passwordAD)) {
+            // Lưu thông tin vào session
             session([
                 'logged_in' => true,
                 'role' => 'admin',
@@ -109,6 +119,15 @@ class AuthController extends Controller
                 'username' => $admin->userNameAD,
                 'name' => $admin->userNameAD,
             ]);
+
+            // Tái tạo session ID để tăng bảo mật
+            $request->session()->regenerate();
+
+            Log::info('Login successful (Admin)', [
+                'admin_id' => $admin->id,
+                'session_data' => session()->all(),
+            ]);
+
             return redirect()->route('admin.dashboard')->with('success', 'Đăng nhập thành công với vai trò Admin');
         }
 
@@ -116,8 +135,11 @@ class AuthController extends Controller
         $employee = Employee::where('tenTaiKhoan', $request->userNameAD)->first();
         if ($employee && Hash::check($request->passwordAD, $employee->matKhau)) {
             if ($employee->trangThai !== 'active') {
+                Log::warning('Employee account is inactive', ['employee_id' => $employee->id_nhanVien]);
                 return redirect()->back()->with('error', 'Tài khoản nhân viên không hoạt động.');
             }
+
+            // Lưu thông tin vào session
             session([
                 'logged_in' => true,
                 'role' => 'employee',
@@ -125,19 +147,34 @@ class AuthController extends Controller
                 'username' => $employee->tenTaiKhoan,
                 'name' => $employee->tenNhanVien,
             ]);
+
+            // Tái tạo session ID để tăng bảo mật
+            $request->session()->regenerate();
+
+            Log::info('Login successful (Employee)', [
+                'employee_id' => $employee->id_nhanVien,
+                'session_data' => session()->all(),
+            ]);
+
             return redirect()->route('admin.dashboard')->with('success', 'Đăng nhập thành công với vai trò Nhân viên');
         }
 
+        Log::warning('Login failed (Admin/Employee)', ['username' => $request->userNameAD]);
         return redirect()->back()->with('error', 'Sai tài khoản hoặc mật khẩu');
     }
 
     /**
-     * Đăng xuất Admin hoặc Nhân viên
+     * Đăng xuất Admin hoặc Nhân viên qua web
      */
-    public function logoutAdmin()
+    public function logoutAdmin(Request $request)
     {
-        session()->forget(['logged_in', 'role', 'user_id', 'username', 'name']);
-        return redirect('/login')->with('success', 'Đăng xuất thành công');
+        Log::info('Logout attempt (Admin/Employee)', ['session_data' => session()->all()]);
+
+        // Xóa toàn bộ session
+        $request->session()->invalidate();
+        $request->session()->regenerateToken(); // Tái tạo CSRF token để tránh lỗi 419
+
+        return redirect()->route('login')->with('success', 'Đăng xuất thành công');
     }
 
     /**
@@ -145,8 +182,14 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Đăng xuất thành công'], 200);
+        $user = $request->user();
+        if ($user) {
+            $user->currentAccessToken()->delete();
+            Log::info('Logout successful (User)', ['user_id' => $user->id]);
+            return response()->json(['message' => 'Đăng xuất thành công'], 200);
+        }
+
+        return response()->json(['message' => 'Không tìm thấy người dùng'], 401);
     }
 
     /**
@@ -155,16 +198,20 @@ class AuthController extends Controller
     public function getUser(Request $request)
     {
         $user = $request->user();
-        return response()->json([
-            'message' => 'Thông tin người dùng',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'tuoi' => $user->tuoi,
-            ]
-        ], 200);
+        if ($user) {
+            return response()->json([
+                'message' => 'Thông tin người dùng',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'tuoi' => $user->tuoi,
+                ]
+            ], 200);
+        }
+
+        return response()->json(['message' => 'Không tìm thấy người dùng'], 401);
     }
 
     /**
@@ -173,6 +220,9 @@ class AuthController extends Controller
     public function updateUser(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Không tìm thấy người dùng'], 401);
+        }
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',

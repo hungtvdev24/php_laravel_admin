@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\Http\Controllers;
 
@@ -262,6 +262,10 @@ class AdminController extends Controller
         ]);
 
         $adminId = session('user_id');
+        if (!$adminId) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập lại để thực hiện hành động này.');
+        }
+
         Employee::create([
             'tenNhanVien' => $request->tenNhanVien,
             'tuoi' => $request->tuoi,
@@ -321,7 +325,10 @@ class AdminController extends Controller
     public function manageUsers()
     {
         $users = User::all();
-        return view('admin.users.index', ['users' => $users, 'readOnly' => session('role') === 'employee']);
+        return view('admin.users.index', [
+            'users' => $users,
+            'readOnly' => request()->attributes->get('user_type') === 'employee'
+        ]);
     }
 
     public function destroyUser($id)
@@ -358,13 +365,23 @@ class AdminController extends Controller
         $orders = $query->paginate(10);
         $orders->appends(['phone' => $phone, 'status' => $status, 'start_date' => $start_date, 'end_date' => $end_date]);
 
-        return view('admin.orders.index', compact('orders', 'phone', 'status', 'start_date', 'end_date'));
+        return view('admin.orders.index', [
+            'orders' => $orders,
+            'phone' => $phone,
+            'status' => $status,
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'readOnly' => false // Nhân viên có đầy đủ quyền trên Đơn hàng
+        ]);
     }
 
     public function orderDetails($id)
     {
         $order = DonHang::with(['chiTietDonHang.sanPham', 'chiTietDonHang.variation', 'statusHistory'])->findOrFail($id);
-        return view('admin.orders.vieworder', compact('order'));
+        return view('admin.orders.vieworder', [
+            'order' => $order,
+            'readOnly' => false // Nhân viên có đầy đủ quyền trên Đơn hàng
+        ]);
     }
 
     public function updateOrder(Request $request, $id)
@@ -374,7 +391,7 @@ class AdminController extends Controller
         $oldStatus = $order->trangThaiDonHang;
         $newStatus = $request->trangThaiDonHang;
 
-        if (session('role') === 'employee' && !($oldStatus === 'cho_xac_nhan' && $newStatus === 'dang_giao')) {
+        if (request()->attributes->get('user_type') === 'employee' && !($oldStatus === 'cho_xac_nhan' && $newStatus === 'dang_giao')) {
             return redirect()->back()->with('error', 'Nhân viên chỉ có thể chuyển trạng thái từ "Chờ xác nhận" sang "Đang giao".');
         }
 
@@ -407,7 +424,6 @@ class AdminController extends Controller
     {
         $query = Product::with(['danhMuc', 'variations.images'])->orderBy('id_sanPham', 'desc');
         
-        // Hỗ trợ tìm kiếm
         if ($request->filled('search')) {
             $query->where('tenSanPham', 'LIKE', "%{$request->search}%");
         }
@@ -417,67 +433,91 @@ class AdminController extends Controller
 
         return view('admin.products.index', [
             'products' => $products,
-            'readOnly' => session('role') === 'employee'
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
         ]);
     }
 
     public function manageCustomers()
     {
-        return view('admin.customers.index');
+        return view('admin.customers.index', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function managePromotions()
     {
-        return view('admin.promotions.index');
+        return view('admin.promotions.index', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function statisticsOrders()
     {
-        return view('admin.statistics.orders');
+        return view('admin.statistics.orders', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function statisticsProducts()
     {
-        return view('admin.statistics.products');
+        return view('admin.statistics.products', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function statisticsRevenue()
     {
-        return view('admin.statistics.revenue');
+        return view('admin.statistics.revenue', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function manageAffiliate()
     {
-        return view('admin.affiliate.index');
+        return view('admin.affiliate.index', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function manageCampaigns()
     {
-        return view('admin.campaigns.index');
+        return view('admin.campaigns.index', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function manageServices()
     {
-        return view('admin.services.index');
+        return view('admin.services.index', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function manageTransactions()
     {
-        return view('admin.transactions.index');
+        return view('admin.transactions.index', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function manageNotifications()
     {
-        return view('admin.notifications');
+        return view('admin.notifications', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function manageComments()
     {
-        return view('admin.comments');
+        return view('admin.comments', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 
     public function verification()
     {
-        return view('admin.verification');
+        return view('admin.verification', [
+            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        ]);
     }
 }

@@ -17,6 +17,7 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'phone' => 'nullable|string|max:15',
             'password' => 'required|string|min:6',
+            'tuoi' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -28,6 +29,7 @@ class AuthController extends Controller
             'email' => $request->email,
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
+            'tuoi' => $request->tuoi,
         ]);
 
         // Tạo token cho người dùng mới
@@ -81,9 +83,20 @@ class AuthController extends Controller
         ], 200);
     }
 
-    // Lấy danh sách người dùng (để kiểm tra dữ liệu)
-    public function users()
+    // Lấy danh sách người dùng (trừ người dùng hiện tại) để chọn người nhận tin nhắn
+    public function users(Request $request)
     {
-        return response()->json(User::all(), 200);
+        $currentUserId = $request->user()->id;
+        $users = User::where('id', '!=', $currentUserId)
+                     ->select('id', 'name', 'email', 'phone', 'tuoi')
+                     ->get();
+        return response()->json($users, 200);
+    }
+
+    // Đăng xuất
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+        return response()->json(['message' => 'Đăng xuất thành công'], 200);
     }
 }

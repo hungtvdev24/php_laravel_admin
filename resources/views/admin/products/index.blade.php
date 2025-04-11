@@ -120,11 +120,11 @@
                                             <a href="{{ route('admin.products.edit', $product->id_sanPham) }}" class="btn btn-warning btn-sm shadow-sm">
                                                 ✏
                                             </a>
-                                            <form action="{{ route('admin.products.destroy', $product->id_sanPham) }}" method="POST" style="display: inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa sản phẩm này?');">
+                                            <!-- <form action="{{ route('admin.products.destroy', $product->id_sanPham) }}" method="POST" style="display: inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa sản phẩm này?');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-danger btn-sm shadow-sm">🗑</button>
-                                            </form>
+                                            </form> -->
                                         </div>
 
                                         <!-- Modal chi tiết sản phẩm -->
