@@ -14,7 +14,7 @@ return [
     */
 
     'defaults' => [
-        'guard' => 'web', // Guard mặc định là 'web', có thể thay bằng 'admin' nếu muốn
+        'guard' => 'web', // Guard mặc định là 'web'
         'passwords' => 'users',
     ],
 
@@ -31,7 +31,7 @@ return [
     | users are actually retrieved out of your database or other storage
     | mechanisms used by this application to persist your user's data.
     |
-    | Supported: "session"
+    | Supported: "session", "token"
     |
     */
 
@@ -43,6 +43,14 @@ return [
         'admin' => [
             'driver' => 'session',
             'provider' => 'admins', // Sử dụng provider 'admins' cho guard 'admin'
+        ],
+        'employee' => [
+            'driver' => 'session',
+            'provider' => 'employees', // Sử dụng provider 'employees' cho guard 'employee'
+        ],
+        'api' => [
+            'driver' => 'sanctum',
+            'provider' => 'users', // Sử dụng cho API với Sanctum
         ],
     ],
 
@@ -71,6 +79,10 @@ return [
         'admins' => [
             'driver' => 'eloquent',
             'model' => App\Models\Admin::class, // Model cho admin
+        ],
+        'employees' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Employee::class, // Model cho employee
         ],
     ],
 
@@ -102,6 +114,12 @@ return [
         ],
         'admins' => [
             'provider' => 'admins',
+            'table' => 'password_reset_tokens', // Có thể tạo bảng riêng nếu cần
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'employees' => [
+            'provider' => 'employees',
             'table' => 'password_reset_tokens', // Có thể tạo bảng riêng nếu cần
             'expire' => 60,
             'throttle' => 60,

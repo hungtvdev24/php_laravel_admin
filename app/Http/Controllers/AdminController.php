@@ -11,9 +11,13 @@ use App\Models\Employee;
 use App\Models\Admin;
 use App\Models\DanhMuc;
 use App\Models\OrderStatusHistory;
+use App\Models\Mess;
+use App\Models\Notification;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
@@ -261,7 +265,7 @@ class AdminController extends Controller
             'trangThai' => 'required|in:active,inactive',
         ]);
 
-        $adminId = session('user_id');
+        $adminId = Auth::guard('admin')->id();
         if (!$adminId) {
             return redirect()->route('login')->with('error', 'Vui lòng đăng nhập lại để thực hiện hành động này.');
         }
@@ -502,9 +506,27 @@ class AdminController extends Controller
 
     public function manageNotifications()
     {
-        return view('admin.notifications', [
-            'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
+        $adminId = Auth::guard('admin')->id();
+        $notifications = Notification::where('user_id', $adminId)->orderBy('created_at', 'desc')->get();
+        return view('admin.notifications.index', compact('notifications'));
+    }
+
+    public function sendNotification(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
         ]);
+
+        Notification::create([
+            'user_id' => $request->user_id,
+            'title' => $request->title,
+            'content' => $request->content,
+            'is_read' => false,
+        ]);
+
+        return redirect()->back()->with('success', 'Thông báo đã được gửi!');
     }
 
     public function manageComments()
@@ -519,5 +541,223 @@ class AdminController extends Controller
         return view('admin.verification', [
             'readOnly' => request()->attributes->get('user_type') === 'employee' // Nhân viên chỉ có quyền xem
         ]);
+    }
+
+    /**
+     * Hiển thị danh sách người dùng để admin chọn người chat.
+     */
+    public function chatIndex()
+    {
+        $admin = Auth::guard('admin')->user();
+        if (!$admin) {
+            return redirect()->route('admin.login')->with('error', 'Vui lòng đăng nhập lại để xem danh sách người dùng.');
+        }
+
+        // Lấy danh sách tất cả người dùng
+        $users = User::all();
+
+        // Chuẩn bị initialUsers cho JavaScript
+        $initialUsers = $users->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ];
+        })->toArray();
+
+        // Lấy số tin nhắn chưa đọc, thời gian tin nhắn gần đây nhất, và nội dung tin nhắn gần đây
+        $unreadMessages = [];
+        $latestMessages = [];
+        $latestMessageContents = [];
+
+        foreach ($users as $user) {
+            // Đếm số tin nhắn chưa đọc từ người dùng gửi đến admin
+            $unreadCount = Mess::where('sender_id', $user->id)
+                ->where('sender_type', User::class)
+                ->where('receiver_id', $admin->id)
+                ->where('receiver_type', Admin::class)
+                ->where('is_read', false)
+                ->count();
+            $unreadMessages[$user->id] = $unreadCount;
+
+            // Lấy tin nhắn gần đây nhất giữa admin và người dùng
+            $latestMessage = Mess::where(function ($query) use ($user, $admin) {
+                $query->where('sender_id', $user->id)
+                      ->where('sender_type', User::class)
+                      ->where('receiver_id', $admin->id)
+                      ->where('receiver_type', Admin::class);
+            })->orWhere(function ($query) use ($user, $admin) {
+                $query->where('sender_id', $admin->id)
+                      ->where('sender_type', Admin::class)
+                      ->where('receiver_id', $user->id)
+                      ->where('receiver_type', User::class);
+            })->orderBy('created_at', 'desc')
+              ->first();
+
+            // Nếu có tin nhắn, lưu thời gian (theo múi giờ Hà Nội) và nội dung
+            if ($latestMessage) {
+                $latestMessages[$user->id] = Carbon::parse($latestMessage->created_at)
+                    ->setTimezone('Asia/Ho_Chi_Minh')
+                    ->format('H:i d/m/Y');
+                $latestMessageContents[$user->id] = $latestMessage->content;
+            } else {
+                $latestMessages[$user->id] = null;
+                $latestMessageContents[$user->id] = null;
+            }
+        }
+
+        return view('admin.chat.index', compact('users', 'unreadMessages', 'latestMessages', 'latestMessageContents', 'admin', 'initialUsers'));
+    }
+
+    /**
+     * Hiển thị màn hình chat với một người dùng cụ thể.
+     */
+    public function chatWithUser($userId)
+    {
+        $user = User::findOrFail($userId);
+
+        $sender = null;
+        $senderId = null;
+        $senderType = null;
+
+        if (Auth::guard('admin')->check()) {
+            $sender = Admin::find(Auth::guard('admin')->id());
+            if (!$sender) {
+                return redirect()->route('admin.login')->with('error', 'Vui lòng đăng nhập lại để xem tin nhắn.');
+            }
+            $senderId = $sender->id; // Cột khóa chính của bảng admins là 'id'
+            $senderType = Admin::class;
+        } elseif (Auth::guard('employee')->check()) {
+            $sender = Employee::find(Auth::guard('employee')->id());
+            if (!$sender) {
+                return redirect()->route('admin.login')->with('error', 'Vui lòng đăng nhập lại để xem tin nhắn.');
+            }
+            $senderId = $sender->id_nhanVien; // Cột khóa chính của bảng employees là 'id_nhanVien'
+            $senderType = Employee::class;
+        } else {
+            return redirect()->route('admin.login')->with('error', 'Vui lòng đăng nhập lại để xem tin nhắn.');
+        }
+
+        $messages = Mess::where(function ($query) use ($senderId, $senderType, $userId) {
+            $query->where('sender_id', $senderId)
+                  ->where('sender_type', $senderType)
+                  ->where('receiver_id', $userId)
+                  ->where('receiver_type', User::class);
+        })->orWhere(function ($query) use ($senderId, $senderType, $userId) {
+            $query->where('sender_id', $userId)
+                  ->where('sender_type', User::class)
+                  ->where('receiver_id', $senderId)
+                  ->where('receiver_type', $senderType);
+        })->orderBy('created_at', 'asc')->get();
+
+        // Chuyển đổi thời gian sang múi giờ Hà Nội
+        foreach ($messages as $message) {
+            $message->created_at = Carbon::parse($message->created_at)->setTimezone('Asia/Ho_Chi_Minh');
+        }
+
+        // Đánh dấu tất cả tin nhắn từ người dùng này là đã đọc
+        Mess::where('sender_id', $userId)
+            ->where('sender_type', User::class)
+            ->where('receiver_id', $senderId)
+            ->where('receiver_type', $senderType)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return view('admin.chat.show', compact('user', 'messages', 'senderId'));
+    }
+
+    /**
+     * Gửi tin nhắn từ admin hoặc nhân viên đến người dùng.
+     */
+    public function sendMessage(Request $request, $userId)
+    {
+        $request->validate([
+            'content' => 'required|string',
+        ]);
+
+        $sender = null;
+        $senderId = null;
+        $senderType = null;
+
+        if (Auth::guard('admin')->check()) {
+            $sender = Admin::find(Auth::guard('admin')->id());
+            if (!$sender) {
+                return redirect()->route('admin.login')->with('error', 'Tài khoản admin không hợp lệ.');
+            }
+            $senderId = $sender->id; // Cột khóa chính của bảng admins là 'id'
+            $senderType = Admin::class;
+        } elseif (Auth::guard('employee')->check()) {
+            $sender = Employee::find(Auth::guard('employee')->id());
+            if (!$sender) {
+                return redirect()->route('admin.login')->with('error', 'Tài khoản nhân viên không hợp lệ.');
+            }
+            $senderId = $sender->id_nhanVien; // Cột khóa chính của bảng employees là 'id_nhanVien'
+            $senderType = Employee::class;
+        } else {
+            return redirect()->route('admin.login')->with('error', 'Vui lòng đăng nhập lại để gửi tin nhắn.');
+        }
+
+        $receiver = User::find($userId);
+        if (!$receiver) {
+            return redirect()->route('admin.chat.index')->with('error', 'Người nhận không tồn tại.');
+        }
+
+        $message = Mess::create([
+            'sender_id' => $senderId,
+            'sender_type' => $senderType,
+            'receiver_id' => $userId,
+            'receiver_type' => User::class,
+            'content' => $request->content,
+            'is_read' => false,
+        ]);
+
+        Log::info('sendMessage called', [
+            'sender_id' => $senderId,
+            'sender_type' => $senderType,
+            'receiver_id' => $userId,
+            'receiver_type' => User::class,
+            'content' => $request->content,
+        ]);
+
+        event(new \App\Events\MessageSent($message));
+
+        Log::info('MessageSent event fired', ['message' => $message->toArray()]);
+
+        return redirect()->route('admin.chat.show', $userId)->with('success', 'Tin nhắn đã được gửi!');
+    }
+
+    /**
+     * API để lấy tin nhắn giữa admin và một người dùng cụ thể.
+     */
+    public function getMessages($userId, Request $request)
+    {
+        $receiverType = $request->query('receiver_type');
+        $adminId = Auth::guard('admin')->id();
+
+        if (!$adminId) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $messages = Mess::where(function ($query) use ($userId, $adminId, $receiverType) {
+            $query->where('sender_id', $userId)
+                  ->where('sender_type', User::class)
+                  ->where('receiver_id', $adminId)
+                  ->where('receiver_type', $receiverType);
+        })->orWhere(function ($query) use ($userId, $adminId, $receiverType) {
+            $query->where('sender_id', $adminId)
+                  ->where('sender_type', $receiverType)
+                  ->where('receiver_id', $userId)
+                  ->where('receiver_type', User::class);
+        })->orderBy('created_at', 'asc')->get();
+
+        Log::info('getMessages called', [
+            'userId' => $userId,
+            'adminId' => $adminId,
+            'receiverType' => $receiverType,
+            'messageCount' => $messages->count(),
+        ]);
+
+        return response()->json(['data' => $messages]);
     }
 }

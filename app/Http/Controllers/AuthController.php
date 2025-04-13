@@ -87,7 +87,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Đăng nhập Admin hoặc Nhân viên qua web (sử dụng session)
+     * Đăng nhập Admin hoặc Nhân viên qua web (sử dụng Auth guard)
      */
     public function loginAdmin(Request $request)
     {
@@ -111,7 +111,10 @@ class AuthController extends Controller
         // Kiểm tra trong bảng admins trước
         $admin = Admin::where('userNameAD', $request->userNameAD)->first();
         if ($admin && Hash::check($request->passwordAD, $admin->passwordAD)) {
-            // Lưu thông tin vào session
+            // Đăng nhập admin bằng Auth guard
+            Auth::guard('admin')->login($admin);
+
+            // Lưu thông tin vào session (nếu cần)
             session([
                 'logged_in' => true,
                 'role' => 'admin',
@@ -138,6 +141,9 @@ class AuthController extends Controller
                 Log::warning('Employee account is inactive', ['employee_id' => $employee->id_nhanVien]);
                 return redirect()->back()->with('error', 'Tài khoản nhân viên không hoạt động.');
             }
+
+            // Đăng nhập nhân viên bằng Auth guard
+            Auth::guard('employee')->login($employee);
 
             // Lưu thông tin vào session
             session([
@@ -169,6 +175,10 @@ class AuthController extends Controller
     public function logoutAdmin(Request $request)
     {
         Log::info('Logout attempt (Admin/Employee)', ['session_data' => session()->all()]);
+
+        // Đăng xuất khỏi guard admin và employee
+        Auth::guard('admin')->logout();
+        Auth::guard('employee')->logout();
 
         // Xóa toàn bộ session
         $request->session()->invalidate();

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Trang Quản Trị')</title>
     
     <!-- Link CSS (Bootstrap và Font Awesome) -->
@@ -178,6 +179,7 @@
         <a href="{{ route('admin.orders.index') }}" class="{{ Request::is('admin/orders*') ? 'active' : '' }}"><i class="fas fa-box"></i> Đơn hàng</a>
         <a href="{{ route('admin.products.index') }}" class="{{ Request::is('admin/products*') ? 'active' : '' }}"><i class="fas fa-box-open"></i> Sản phẩm</a>
         <a href="{{ route('admin.reviews.index') }}" class="{{ Request::is('admin/reviews*') ? 'active' : '' }}"><i class="fas fa-comment"></i> Bình luận</a>
+        <a href="{{ route('admin.chat.index') }}" class="{{ Request::is('admin/chat*') ? 'active' : '' }}"><i class="fas fa-comments"></i> Chat</a>
 
         <!-- Nút Đăng xuất -->
         <form action="{{ route('admin.logout') }}" method="POST" style="margin-top: auto;">

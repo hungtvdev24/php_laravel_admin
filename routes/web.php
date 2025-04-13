@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
@@ -7,7 +8,12 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\DanhMucController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
-use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
 // Redirect root URL to login page
 Route::get('/', function () {
@@ -124,6 +130,12 @@ Route::middleware(['admin'])->prefix('/admin')->group(function () {
 
     // Statistics routes (nhân viên chỉ có quyền xem)
     Route::get('/statistics', [AdminController::class, 'statisticsOrders'])->name('admin.statistics.index');
+
+    // Notification management routes (admin và nhân viên đều có thể truy cập)
+    Route::prefix('/notifications')->group(function () {
+        Route::get('/', [AdminController::class, 'manageNotifications'])->name('admin.notifications.index'); // Hiển thị danh sách thông báo
+        Route::post('/send', [AdminController::class, 'sendNotification'])->name('admin.notifications.send'); // Gửi thông báo mới
+    });
 
     // Chat management routes (admin và nhân viên đều có thể truy cập)
     Route::prefix('/chat')->group(function () {
