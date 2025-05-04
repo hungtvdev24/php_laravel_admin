@@ -2,35 +2,32 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 
-class Employee extends Model
+class Employee extends Authenticatable
 {
-    use HasFactory;
+    protected $table = 'employees';
+    protected $primaryKey = 'id_nhanVien';
+    protected $fillable = ['tenNhanVien', 'tuoi', 'diaChi', 'tenTaiKhoan', 'matKhau', 'trangThai', 'id_admin'];
+    public $incrementing = true;
+    protected $keyType = 'int';
+    public $timestamps = true;
 
-    protected $table = 'employees'; // Tên bảng
-    protected $primaryKey = 'id_nhanVien'; // Khóa chính
+    // Ánh xạ trường mật khẩu thành matKhau
+    public function getAuthPassword()
+    {
+        return $this->matKhau;
+    }
 
-    // Các trường có thể điền dữ liệu
-    protected $fillable = [
-        'tenNhanVien',
-        'tuoi',
-        'diaChi',
-        'tenTaiKhoan',
-        'matKhau',
-        'trangThai',
-        'id_admin',
-    ];
+    // Ánh xạ trường định danh thành id_nhanVien
+    public function getAuthIdentifierName()
+    {
+        return 'id_nhanVien';
+    }
 
-    // Ẩn trường mật khẩu khi trả về dữ liệu
-    protected $hidden = [
-        'matKhau',
-    ];
-
-    // Quan hệ với model Admin
     public function admin()
     {
-        return $this->belongsTo(Admin::class, 'id_admin');
+        return $this->belongsTo(Admin::class, 'id_admin', 'id');
     }
 }

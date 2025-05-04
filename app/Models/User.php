@@ -38,12 +38,28 @@ class User extends Authenticatable
     // Quan hệ 1-nhiều: Tin nhắn đã gửi
     public function sentMessages()
     {
-        return $this->hasMany(Mess::class, 'sender_id', 'id');
+        return $this->hasMany(Mess::class, 'sender_id', 'id')
+                    ->where('sender_type', 'App\\Models\\User');
     }
 
     // Quan hệ 1-nhiều: Tin nhắn đã nhận
     public function receivedMessages()
     {
-        return $this->hasMany(Mess::class, 'receiver_id', 'id');
+        return $this->hasMany(Mess::class, 'receiver_id', 'id')
+                    ->where('receiver_type', 'App\\Models\\User');
+    }
+
+    // Quan hệ với vouchers qua user_voucher_usage
+    public function vouchers()
+    {
+        return $this->belongsToMany(Voucher::class, 'user_voucher_usage')
+                    ->withPivot('used_at', 'order_id')
+                    ->withTimestamps();
+    }
+
+    // Quan hệ với đơn hàng
+    public function orders()
+    {
+        return $this->hasMany(DonHang::class, 'id_nguoiDung');
     }
 }

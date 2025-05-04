@@ -64,10 +64,15 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $notifications = $user->notifications()
-                             ->withPivot('is_read')
-                             ->latest()
-                             ->get();
+        $notifications = Notification::whereHas('users', function ($query) use ($user) {
+            $query->where('notification_user.user_id', $user->id);
+        })
+        ->with(['users' => function ($query) use ($user) {
+            $query->where('notification_user.user_id', $user->id)
+                  ->withPivot('is_read');
+        }])
+        ->latest()
+        ->get();
 
         return response()->json($notifications);
     }
@@ -109,5 +114,15 @@ class NotificationController extends Controller
             'message' => 'Thông báo đã được tạo và gửi thành công',
             'notification' => $notification,
         ], 201);
+    }
+
+    // API: Xóa thông báo
+    public function destroy($notificationId)
+    {
+        $notification = Notification::findOrFail($notificationId);
+        $notification->users()->detach(); // Xóa mối quan hệ với users trong bảng pivot
+        $notification->delete(); // Xóa thông báo
+
+        return response()->json(['message' => 'Thông báo đã được xóa thành công']);
     }
 }

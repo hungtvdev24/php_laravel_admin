@@ -61,29 +61,38 @@
         let token = document.head.querySelector('meta[name="csrf-token"]');
         if (token) {
             window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
+            console.log('[ChatShow] CSRF token đã được thiết lập:', token.content);
         } else {
-            console.error('[Chat] Không tìm thấy CSRF token');
+            console.error('[ChatShow] Không tìm thấy CSRF token');
         }
 
+        // Khởi tạo Pusher và Echo
         window.Pusher = Pusher;
-        window.Echo = new Echo({
-            broadcaster: 'pusher',
-            key: '{{ env('PUSHER_APP_KEY') }}',
-            cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
-            forceTLS: true
-        });
+        console.log('[ChatShow] Khởi tạo Pusher với key:', '{{ env('PUSHER_APP_KEY') }}', 'và cluster:', '{{ env('PUSHER_APP_CLUSTER') }}');
+        try {
+            window.Echo = new Echo({
+                broadcaster: 'pusher',
+                key: '{{ env('PUSHER_APP_KEY') }}',
+                cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
+                forceTLS: true
+            });
+            console.log('[ChatShow] Khởi tạo Laravel Echo thành công');
+        } catch (error) {
+            console.error('[ChatShow] Lỗi khi khởi tạo Laravel Echo:', error);
+        }
 
         // Lấy thông tin người dùng hiện tại
         const currentUserId = {{ $senderId ?? 'null' }};
         const currentUserType = 'App\\Models\\Admin';
-        console.log('[Chat] Current user:', { id: currentUserId, type: currentUserType });
+        const userId = {{ $user->id }};
+        console.log('[ChatShow] Current user:', { id: currentUserId, type: currentUserType }, 'Chatting with:', userId);
 
         // Hàm cuộn xuống cuối khung chat
         function scrollToBottom() {
             const chatBox = document.getElementById('chat-box');
             setTimeout(() => {
                 chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-                console.log('[Chat] Đã cuộn xuống tin nhắn mới nhất');
+                console.log('[ChatShow] Đã cuộn xuống tin nhắn mới nhất');
             }, 50);
         }
 
@@ -100,12 +109,11 @@
             });
         }
 
-        // Hàm thêm tin nhắn
+        // Hàm thêm tin nhắn vào giao diện
         function appendMessage(content, isSent, createdAt, messageId = null) {
             const chatBox = document.getElementById('chat-box');
-            // Kiểm tra trùng lặp tin nhắn
             if (messageId && document.querySelector(`[data-message-id="${messageId}"]`)) {
-                console.log('[Chat] Tin nhắn đã tồn tại, bỏ qua:', messageId);
+                console.log('[ChatShow] Tin nhắn đã tồn tại, bỏ qua:', messageId);
                 return;
             }
 
@@ -125,18 +133,48 @@
             messageDiv.innerHTML = messageContent;
             chatBox.appendChild(messageDiv);
             scrollToBottom();
-            console.log('[Chat] Đã thêm tin nhắn:', { content, isSent, time: formatHanoiTime(createdAt), messageId });
+            console.log('[ChatShow] Đã thêm tin nhắn:', { content, isSent, time: formatHanoiTime(createdAt), messageId });
         }
 
         // Lắng nghe tin nhắn mới qua Pusher
-        window.Echo.channel('chat.{{ $user->id }}')
+        window.Echo.channel(`chat.${userId}`)
             .listen('.message.sent', (e) => {
+                console.log('[ChatShow] Nhận tin nhắn thời gian thực qua Pusher:', e.message);
                 const isSent = e.message.sender_id == currentUserId && e.message.sender_type == currentUserType;
-                appendMessage(e.message.content, isSent, e.message.created_at, e.message.id);
-                console.log('[Chat] Nhận tin nhắn thời gian thực qua Pusher:', e.message);
+                const isRelevant = 
+                    (e.message.sender_id == userId && e.message.sender_type == 'App\\Models\\User' && e.message.receiver_id == currentUserId && e.message.receiver_type == currentUserType) ||
+                    (e.message.sender_id == currentUserId && e.message.sender_type == currentUserType && e.message.receiver_id == userId && e.message.receiver_type == 'App\\Models\\User');
+                
+                if (isRelevant) {
+                    appendMessage(e.message.content, isSent, e.message.created_at, e.message.id);
+                } else {
+                    console.log('[ChatShow] Tin nhắn không liên quan:', e.message);
+                }
+            })
+            .error(error => {
+                console.error('[ChatShow] Lỗi khi lắng nghe kênh chat.' + userId + ':', error);
             });
 
-        // Xử lý nhấn Enter hai lần và gửi form
+        // Lắng nghe kênh của admin để nhận tin nhắn từ người dùng
+        window.Echo.channel(`chat.${currentUserId}`)
+            .listen('.message.sent', (e) => {
+                console.log('[ChatShow] Nhận tin nhắn thời gian thực từ kênh admin:', e.message);
+                const isSent = e.message.sender_id == currentUserId && e.message.sender_type == currentUserType;
+                const isRelevant = 
+                    (e.message.sender_id == userId && e.message.sender_type == 'App\\Models\\User' && e.message.receiver_id == currentUserId && e.message.receiver_type == currentUserType) ||
+                    (e.message.sender_id == currentUserId && e.message.sender_type == currentUserType && e.message.receiver_id == userId && e.message.receiver_type == 'App\\Models\\User');
+                
+                if (isRelevant) {
+                    appendMessage(e.message.content, isSent, e.message.created_at, e.message.id);
+                } else {
+                    console.log('[ChatShow] Tin nhắn không liên quan từ kênh admin:', e.message);
+                }
+            })
+            .error(error => {
+                console.error('[ChatShow] Lỗi khi lắng nghe kênh chat.' + currentUserId + ':', error);
+            });
+
+        // Xử lý gửi tin nhắn qua AJAX
         document.addEventListener('DOMContentLoaded', function() {
             const chatBox = document.getElementById('chat-box');
             const textarea = document.querySelector('.chat-form textarea');
@@ -145,33 +183,21 @@
 
             // Tự động cuộn khi tải trang
             scrollToBottom();
-            console.log('[Chat] Khởi tạo khung chat, cuộn xuống đầu tiên');
+            console.log('[ChatShow] Khởi tạo khung chat, cuộn xuống đầu tiên');
 
-            // Sự kiện nhấn phím
+            // Sự kiện nhấn phím Enter
             textarea.addEventListener('keydown', function(event) {
                 if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
                     const currentTime = new Date().getTime();
-                    console.log('[Chat] Nhấn Enter, khoảng cách thời gian:', currentTime - lastEnterTime);
+                    console.log('[ChatShow] Nhấn Enter, khoảng cách thời gian:', currentTime - lastEnterTime);
                     if (currentTime - lastEnterTime < 500) {
                         const content = textarea.value.trim();
                         if (content) {
-                            console.log('[Chat] Chuẩn bị gửi tin nhắn:', content);
-                            textarea.value = '';
-                            // Gửi AJAX và chờ Pusher
-                            axios.post(form.action, {
-                                content: content,
-                                _token: token.content
-                            })
-                            .then(response => {
-                                console.log('[Chat] Tin nhắn gửi thành công qua AJAX:', response.data);
-                            })
-                            .catch(error => {
-                                console.error('[Chat] Lỗi khi gửi tin nhắn:', error);
-                                alert('Không thể gửi tin nhắn. Vui lòng thử lại.');
-                            });
+                            console.log('[ChatShow] Chuẩn bị gửi tin nhắn:', content);
+                            sendMessage(content);
                         } else {
-                            console.log('[Chat] Tin nhắn rỗng, không gửi');
+                            console.log('[ChatShow] Tin nhắn rỗng, không gửi');
                         }
                     }
                     lastEnterTime = currentTime;
@@ -183,23 +209,41 @@
                 event.preventDefault();
                 const content = textarea.value.trim();
                 if (content) {
-                    console.log('[Chat] Gửi tin nhắn qua nút:', content);
-                    textarea.value = '';
-                    axios.post(form.action, {
-                        content: content,
-                        _token: token.content
-                    })
-                    .then(response => {
-                        console.log('[Chat] Tin nhắn gửi thành công qua AJAX:', response.data);
-                    })
-                    .catch(error => {
-                        console.error('[Chat] Lỗi khi gửi tin nhắn:', error);
-                        alert('Không thể gửi tin nhắn. Vui lòng thử lại.');
-                    });
+                    console.log('[ChatShow] Gửi tin nhắn qua nút:', content);
+                    sendMessage(content);
                 } else {
-                    console.log('[Chat] Tin nhắn rỗng, không gửi');
+                    console.log('[ChatShow] Tin nhắn rỗng, không gửi');
                 }
             });
+
+            // Hàm gửi tin nhắn qua AJAX
+            function sendMessage(content) {
+                textarea.value = ''; // Xóa textarea ngay lập tức
+                const tempCreatedAt = new Date().toISOString(); // Thời gian tạm để hiển thị ngay lập tức
+
+                // Hiển thị tin nhắn ngay lập tức trên giao diện của người gửi
+                appendMessage(content, true, tempCreatedAt);
+
+                // Gửi tin nhắn qua AJAX
+                axios.post(form.action, {
+                    content: content,
+                    _token: token.content,
+                    receiver_id: userId,
+                    receiver_type: 'App\\Models\\User'
+                })
+                .then(response => {
+                    console.log('[ChatShow] Tin nhắn gửi thành công qua AJAX:', response.data);
+                    // Tin nhắn sẽ được Pusher cập nhật lại với thời gian chính xác
+                })
+                .catch(error => {
+                    console.error('[ChatShow] Lỗi khi gửi tin nhắn:', error);
+                    alert('Không thể gửi tin nhắn. Vui lòng thử lại.');
+                    // Nếu lỗi, có thể xóa tin nhắn vừa hiển thị tạm thời
+                    const lastMessage = document.querySelector('#chat-box .message:last-child');
+                    if (lastMessage) lastMessage.remove();
+                    textarea.value = content; // Khôi phục nội dung nếu lỗi
+                });
+            }
         });
     </script>
 

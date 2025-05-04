@@ -410,10 +410,11 @@ class AdminController extends Controller
             $order->trangThaiDonHang = $newStatus;
             $order->save();
 
+            $userType = request()->attributes->get('user_type') === 'employee' ? 'Nhân viên' : 'Admin';
             OrderStatusHistory::create([
                 'id_donHang' => $order->id_donHang,
                 'trangThaiDonHang' => $newStatus,
-                'ghiChu' => "Cập nhật từ '$oldStatus' bởi " . session('name') . " (" . session('username') . ")",
+                'ghiChu' => "Được cập nhật từ trạng thái $oldStatus bởi " . session('name') . " ($userType)",
             ]);
 
             DB::commit();

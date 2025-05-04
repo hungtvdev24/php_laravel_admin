@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Trang Quản Trị')</title>
-    
+   
     <!-- Link CSS (Bootstrap và Font Awesome) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 
     <!-- Thêm CSS jQuery UI -->
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
@@ -167,7 +166,8 @@
         <!-- Phần Hệ Thống -->
         <h3 style="margin-top: 20px; font-size: 16px; color: #e6f3ff;">Hệ Thống</h3>
         <a href="{{ route('admin.dashboard') }}" class="{{ Request::is('admin/dashboard') ? 'active' : '' }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-        <a href="{{ route('admin.affiliate.notifications.index') }}" class="{{ Request::is('admin/affiliate/notifications*') ? 'active' : '' }}"><i class="fas fa-bell"></i> Thông báo Affiliate</a>
+        <a href="{{ route('admin.affiliate.notifications.index') }}" class="{{ Request::is('admin/affiliate/notifications*') ? 'active' : '' }}"><i class="fas fa-bell"></i> Thông báo</a>
+        <a href="{{ route('admin.affiliate.vouchers.index') }}" class="{{ Request::is('admin/affiliate/vouchers*') ? 'active' : '' }}"><i class="fas fa-ticket-alt"></i> Quản lý Voucher</a>
         @if(session('role') === 'admin')
             <a href="{{ route('admin.employees.index') }}" class="{{ Request::is('admin/employees*') ? 'active' : '' }}"><i class="fas fa-user-tie"></i> Quản lý Nhân viên</a>
         @endif
@@ -194,6 +194,7 @@
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');

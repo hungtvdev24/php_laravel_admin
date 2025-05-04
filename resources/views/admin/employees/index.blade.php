@@ -30,11 +30,7 @@
                     <td>{{ $employee->admin->userNameAD ?? 'N/A' }}</td>
                     <td>
                         <a href="{{ route('admin.employees.edit', $employee->id_nhanVien) }}" class="btn btn-warning btn-sm">Sửa</a>
-                        <form action="{{ route('admin.employees.destroy', $employee->id_nhanVien) }}" method="POST" style="display:inline;">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Bạn có chắc muốn xóa?')">Xóa</button>
-                        </form>
+                        
                     </td>
                 </tr>
             @endforeach

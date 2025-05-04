@@ -19,8 +19,12 @@
                     <td>{{ $order->ten_nguoiNhan }}</td>
                 </tr>
                 <tr>
-                    <th>SĐT</th>
+                    <th>SĐT người nhận</th>
                     <td>{{ $order->sdt_nhanHang }}</td>
+                </tr>
+                <tr>
+                    <th>SĐT khách hàng</th>
+                    <td>{{ $order->user->phone ?? '-' }}</td>
                 </tr>
                 <tr>
                     <th>Địa chỉ</th>

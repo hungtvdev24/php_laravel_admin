@@ -120,7 +120,7 @@
             }
         }
 
-        // Hàm cập nhật hoặc thêm người dùng vào danh sách
+        // Hàm cập nhật hoặc thêm người dùng vào danh sách, luôn đưa lên đầu
         function updateUserList(userId, unreadCount, latestMessageTime, latestMessageContent) {
             console.log('[ChatIndex] Cập nhật giao diện cho user:', { userId, unreadCount, latestMessageTime, latestMessageContent });
 
@@ -162,8 +162,8 @@
                         </a>
                     </td>
                 `;
-                userList.prepend(userRow);
-                console.log('[ChatIndex] Đã thêm user mới vào danh sách:', userId);
+                userList.insertAdjacentElement('afterbegin', userRow); // Thêm vào đầu danh sách
+                console.log('[ChatIndex] Đã thêm user mới vào đầu danh sách:', userId);
             } else {
                 // Cập nhật số tin nhắn chưa đọc
                 const badge = userRow.querySelector('.unread-badge');
@@ -194,7 +194,7 @@
                 console.log('[ChatIndex] Cập nhật tin nhắn gần đây:', { latestMessageTime, latestMessageContent });
 
                 // Đưa hàng lên đầu danh sách
-                userList.prepend(userRow);
+                userList.insertAdjacentElement('afterbegin', userRow);
                 console.log('[ChatIndex] Đưa user lên đầu danh sách:', userId);
             }
         }
@@ -202,7 +202,7 @@
         // Hàm xử lý cập nhật danh sách người dùng từ tin nhắn nhận được
         function handleMessageUpdate(userId) {
             console.log('[ChatIndex] Gọi API để lấy tin nhắn cho user:', userId);
-            axios.get(`/api/admin/messages/${userId}`, { // Sửa endpoint thành /api/admin/messages
+            axios.get(`/api/admin/messages/${userId}`, {
                 params: { receiver_type: 'App\\Models\\Admin' }
             })
             .then(response => {

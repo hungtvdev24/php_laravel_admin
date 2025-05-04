@@ -12,9 +12,13 @@ use App\Models\DiaChi;
 use App\Models\Review;
 use App\Models\ProductVariation;
 use App\Models\Product;
+use App\Models\Voucher;
+use App\Models\UserVoucherUsage;
 use App\Models\OrderStatusHistory;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Http\Controllers\VNPayController;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -25,6 +29,7 @@ class OrderController extends Controller
             'phuongThucThanhToan' => 'required|in:COD,VN_PAY',
             'items' => 'required|array|min:1',
             'items.*.id_mucGioHang' => 'required|exists:mucGioHang,id_mucGioHang',
+            'voucher_code' => 'nullable|string',
         ]);
 
         $user = auth()->user();
@@ -66,9 +71,109 @@ class OrderController extends Controller
 
         $diaChi = DiaChi::findOrFail($request->id_diaChi);
 
+        // Áp dụng voucher nếu có
+        $discountAmount = 0;
+        $voucher = null;
+        if ($request->voucher_code) {
+            $voucher = Voucher::where('code', $request->voucher_code)->first();
+            if (!$voucher) {
+                return response()->json(['message' => 'Voucher không tồn tại'], 404);
+            }
+
+            if ($voucher->status != 'active') {
+                return response()->json(['message' => 'Voucher không hoạt động'], 400);
+            }
+
+            if ($voucher->start_date && $voucher->start_date > now()) {
+                return response()->json(['message' => 'Voucher chưa có hiệu lực'], 400);
+            }
+            if ($voucher->end_date && $voucher->end_date < now()) {
+                return response()->json(['message' => 'Voucher đã hết hạn'], 400);
+            }
+
+            if ($voucher->usage_limit && $voucher->used_count >= $voucher->usage_limit) {
+                return response()->json(['message' => 'Voucher đã hết lượt sử dụng'], 400);
+            }
+
+            if ($user->vouchers()->where('voucher_id', $voucher->id)->exists()) {
+                return response()->json(['message' => 'Bạn đã sử dụng voucher này rồi'], 400);
+            }
+
+            if ($voucher->min_order_value && $tongTien < $voucher->min_order_value) {
+                return response()->json(['message' => 'Đơn hàng không đạt giá trị tối thiểu để áp dụng voucher'], 400);
+            }
+
+            $discountAmount = $voucher->discount_type == 'fixed'
+                ? $voucher->discount_value
+                : min($voucher->max_discount ?? PHP_INT_MAX, $tongTien * $voucher->discount_value / 100);
+        }
+
+        $tongTienSauGiam = $tongTien - $discountAmount;
+
+        // Chuẩn bị dữ liệu đơn hàng để lưu tạm (dùng cho VNPay)
+        $orderData = [
+            'id_nguoiDung' => $user->id,
+            'ten_nguoiNhan' => $diaChi->ten_nguoiNhan,
+            'sdt_nhanHang' => $diaChi->sdt_nhanHang,
+            'ten_nha' => $diaChi->ten_nha,
+            'tinh' => $diaChi->tinh,
+            'huyen' => $diaChi->huyen,
+            'xa' => $diaChi->xa,
+            'tongTien' => $tongTienSauGiam,
+            'phuongThucThanhToan' => $request->phuongThucThanhToan,
+            'trangThaiDonHang' => 'cho_xac_nhan',
+            'voucher_id' => $voucher ? $voucher->id : null,
+            'discount_amount' => $discountAmount,
+            'items' => $selectedMucGioHangs->map(function ($muc) {
+                return [
+                    'id_mucGioHang' => $muc->id_mucGioHang,
+                    'id_sanPham' => $muc->id_sanPham,
+                    'variation_id' => $muc->variation_id,
+                    'soLuong' => $muc->soLuong,
+                    'gia' => $muc->gia,
+                ];
+            })->toArray(),
+            'message' => $request->message ?? '',
+        ];
+
+        if ($request->phuongThucThanhToan === 'VN_PAY') {
+            // Với VNPay, không tạo đơn hàng ngay
+            $vnPayController = new VNPayController();
+            $amountToSend = round($tongTienSauGiam);
+
+            // Mã hóa dữ liệu đơn hàng thành JSON và gửi qua vnp_OrderInfo
+            $orderInfo = base64_encode(json_encode($orderData));
+            Log::info("OrderController checkout: Gửi yêu cầu tới VNPay", [
+                'order_id' => uniqid('temp_'),
+                'amount' => $amountToSend,
+                'orderInfo' => $orderInfo,
+            ]);
+
+            $response = $vnPayController->createPayment(new Request([
+                'amount' => $amountToSend,
+                'order_id' => uniqid('temp_'),
+                'order_info' => $orderInfo,
+            ]));
+
+            if ($response->getStatusCode() === 200) {
+                $responseData = $response->getData(true);
+                if (isset($responseData['payment_url'])) {
+                    return response()->json([
+                        'message' => 'Yêu cầu thanh toán VNPay đã được tạo',
+                        'qr_code' => $responseData['payment_url'],
+                    ], 200);
+                } else {
+                    throw new \Exception('Không tìm thấy payment_url trong phản hồi từ VNPay');
+                }
+            } else {
+                throw new \Exception('Không thể tạo URL thanh toán VNPay: ' . $response->getContent());
+            }
+        }
+
+        // Với COD, tạo đơn hàng ngay
         DB::beginTransaction();
         try {
-            $donHang = DonHang::create([
+            $orderDataForCreation = [
                 'id_nguoiDung' => $user->id,
                 'ten_nguoiNhan' => $diaChi->ten_nguoiNhan,
                 'sdt_nhanHang' => $diaChi->sdt_nhanHang,
@@ -76,10 +181,13 @@ class OrderController extends Controller
                 'tinh' => $diaChi->tinh,
                 'huyen' => $diaChi->huyen,
                 'xa' => $diaChi->xa,
-                'tongTien' => $tongTien,
+                'tongTien' => $tongTienSauGiam,
                 'phuongThucThanhToan' => $request->phuongThucThanhToan,
                 'trangThaiDonHang' => 'cho_xac_nhan',
-            ]);
+                'voucher_id' => $voucher ? $voucher->id : null,
+                'discount_amount' => $discountAmount,
+            ];
+            $donHang = DonHang::create($orderDataForCreation);
 
             foreach ($selectedMucGioHangs as $muc) {
                 ChiTietDonHang::create([
@@ -99,21 +207,27 @@ class OrderController extends Controller
 
             $thanhToanData = [
                 'id_donHang' => $donHang->id_donHang,
-                'soTien' => $tongTien,
+                'soTien' => $tongTienSauGiam,
                 'phuongThucThanhToan' => $request->phuongThucThanhToan,
                 'trangThaiThanhToan' => 'pending',
             ];
-            if ($request->phuongThucThanhToan === 'VN_PAY') {
-                $thanhToanData['qr_code'] = 'QR_CODE_SAMPLE'; // Thay bằng logic thực tế
-            }
+
             ThanhToan::create($thanhToanData);
 
-            // Lưu trạng thái ban đầu
             OrderStatusHistory::create([
                 'id_donHang' => $donHang->id_donHang,
                 'trangThaiDonHang' => 'cho_xac_nhan',
-                'ghiChu' => 'Đơn hàng được tạo',
+                'ghiChu' => 'Đơn hàng được tạo bởi ' . $user->name . ($voucher ? " với voucher {$voucher->code}" : ''),
             ]);
+
+            if ($voucher) {
+                UserVoucherUsage::create([
+                    'user_id' => $user->id,
+                    'voucher_id' => $voucher->id,
+                    'order_id' => $donHang->id_donHang,
+                ]);
+                $voucher->increment('used_count');
+            }
 
             foreach ($selectedMucGioHangs as $muc) {
                 $muc->delete();
@@ -126,6 +240,15 @@ class OrderController extends Controller
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
+            foreach ($selectedMucGioHangs as $muc) {
+                if ($muc->variation_id) {
+                    $variation = ProductVariation::find($muc->variation_id);
+                    if ($variation) {
+                        $variation->stock += $muc->soLuong;
+                        $variation->save();
+                    }
+                }
+            }
             return response()->json([
                 'message' => 'Đặt hàng thất bại',
                 'error' => $e->getMessage(),
@@ -136,7 +259,7 @@ class OrderController extends Controller
     public function userOrders()
     {
         $user = auth()->user();
-        $orders = DonHang::with(['chiTietDonHang.sanPham.variations.images'])
+        $orders = DonHang::with(['chiTietDonHang.sanPham.variations.images', 'voucher'])
             ->where('id_nguoiDung', $user->id)
             ->orderBy('id_donHang', 'desc')
             ->get();
@@ -157,7 +280,7 @@ class OrderController extends Controller
     public function showOrder($id)
     {
         $user = auth()->user();
-        $order = DonHang::with(['chiTietDonHang.sanPham.variations.images'])
+        $order = DonHang::with(['chiTietDonHang.sanPham.variations.images', 'voucher'])
             ->where('id_donHang', $id)
             ->where('id_nguoiDung', $user->id)
             ->first();
@@ -201,11 +324,10 @@ class OrderController extends Controller
             $order->trangThaiDonHang = 'huy';
             $order->save();
 
-            // Lưu lịch sử trạng thái
             OrderStatusHistory::create([
                 'id_donHang' => $order->id_donHang,
                 'trangThaiDonHang' => 'huy',
-                'ghiChu' => 'Đơn hàng bị hủy bởi người dùng',
+                'ghiChu' => 'Đơn hàng bị hủy bởi người dùng ' . $user->name,
             ]);
 
             DB::commit();
@@ -218,16 +340,20 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = DonHang::with(['chiTietDonHang.sanPham'])->orderBy('id_donHang', 'desc');
+        $query = DonHang::with(['chiTietDonHang.sanPham', 'voucher', 'user'])->orderBy('id_donHang', 'desc');
 
-        // Khởi tạo các biến mặc định
         $phone = $request->input('phone', '');
         $status = $request->input('status', 'all');
         $start_date = $request->input('start_date', '');
         $end_date = $request->input('end_date', '');
 
         if ($request->filled('phone')) {
-            $query->where('sdt_nhanHang', 'LIKE', "%{$request->phone}%");
+            $query->where(function ($q) use ($request) {
+                $q->where('sdt_nhanHang', 'LIKE', "%{$request->phone}%")
+                  ->orWhereHas('user', function ($q2) use ($request) {
+                      $q2->where('phone', 'LIKE', "%{$request->phone}%");
+                  });
+            });
         }
 
         if ($request->filled('status') && $request->status !== 'all') {
@@ -277,13 +403,15 @@ class OrderController extends Controller
 
     public function viewOrder($id)
     {
-        $order = DonHang::with(['chiTietDonHang.sanPham', 'chiTietDonHang.variation', 'statusHistory'])->findOrFail($id);
+        $order = DonHang::with(['chiTietDonHang.sanPham', 'chiTietDonHang.variation', 'statusHistory', 'voucher', 'user'])
+            ->findOrFail($id);
         return view('admin.orders.vieworder', compact('order'));
     }
 
     public function exportInvoice($id)
     {
-        $order = DonHang::with(['chiTietDonHang.sanPham', 'chiTietDonHang.variation'])->findOrFail($id);
+        $order = DonHang::with(['chiTietDonHang.sanPham', 'chiTietDonHang.variation', 'voucher', 'user'])
+            ->findOrFail($id);
 
         $data = [
             'order' => $order,
@@ -306,7 +434,6 @@ class OrderController extends Controller
         $oldStatus = $order->trangThaiDonHang;
         $newStatus = $request->trangThaiDonHang;
 
-        // Kiểm tra quyền và trạng thái hợp lệ
         if (auth()->user()->role === 'employee') {
             if ($oldStatus === 'cho_xac_nhan' && $newStatus !== 'dang_giao') {
                 return response()->json(['message' => 'Nhân viên chỉ có thể chuyển trạng thái từ "Chờ xác nhận" sang "Đang giao".'], 403);
@@ -336,11 +463,11 @@ class OrderController extends Controller
             $order->trangThaiDonHang = $newStatus;
             $order->save();
 
-            // Lưu lịch sử trạng thái
+            $userRole = auth()->user()->role === 'employee' ? 'Nhân viên' : 'Admin';
             OrderStatusHistory::create([
                 'id_donHang' => $order->id_donHang,
                 'trangThaiDonHang' => $newStatus,
-                'ghiChu' => "Được cập nhật từ trạng thái $oldStatus bởi " . auth()->user()->name,
+                'ghiChu' => "Được cập nhật từ trạng thái $oldStatus bởi " . auth()->user()->name . " ($userRole)",
             ]);
 
             DB::commit();
@@ -395,11 +522,10 @@ class OrderController extends Controller
             $order->trangThaiDonHang = 'huy';
             $order->save();
 
-            // Lưu lịch sử trạng thái
             OrderStatusHistory::create([
                 'id_donHang' => $order->id_donHang,
                 'trangThaiDonHang' => 'huy',
-                'ghiChu' => 'Đơn hàng bị hủy bởi admin',
+                'ghiChu' => 'Đơn hàng bị hủy bởi admin ' . auth()->user()->name,
             ]);
 
             DB::commit();

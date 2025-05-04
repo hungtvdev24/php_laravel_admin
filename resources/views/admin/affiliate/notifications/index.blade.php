@@ -18,7 +18,6 @@
         <div class="mb-4 d-flex justify-content-between">
             <div>
                 <a href="{{ route('admin.affiliate.notifications.create') }}" class="btn btn-primary me-2">Tạo thông báo mới</a>
-                <a href="{{ route('admin.affiliate.index') }}" class="btn btn-secondary">Quay lại Affiliate</a>
             </div>
         </div>
 

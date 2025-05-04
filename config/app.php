@@ -70,8 +70,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
-
+    'timezone' => 'Asia/Ho_Chi_Minh',
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

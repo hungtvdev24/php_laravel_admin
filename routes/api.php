@@ -10,31 +10,26 @@ use App\Http\Controllers\DanhMucController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\API\MessageController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AdminController; // Thêm import cho AdminController
+use App\Http\Controllers\UserAuthController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\VoucherController;
+use App\Http\Controllers\VNPayController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-*/
-Route::get('/fetch_users', [UserController::class, 'fetchUsers']);
+Route::get('/fetch_users', [UserAuthController::class, 'fetchUsers']);
 
-// 1) Routes công khai cho người dùng thông thường (khách hàng)
+// Routes công khai
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-
-// 2) Route công khai: Lấy danh sách sản phẩm phổ biến, tìm kiếm, danh mục, và đánh giá
 Route::get('/products/popular-public', [ProductController::class, 'getPopularProducts']);
 Route::get('/search', [ProductController::class, 'search']);
 Route::get('/categories', [DanhMucController::class, 'getCategories']);
-Route::get('/products/{id_sanPham}/reviews', [ReviewController::class, 'index']); // Xem đánh giá của sản phẩm (công khai)
+Route::get('/products/{id_sanPham}/reviews', [ReviewController::class, 'index']);
 
-// 3) Routes yêu cầu xác thực (middleware 'auth:sanctum') cho người dùng thông thường
+// Routes yêu cầu xác thực
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
-    Route::get('/users', [AuthController::class, 'getUsers']); // Danh sách người dùng
-    Route::get('/admins', [AuthController::class, 'getAdmins']); // Danh sách Admin
+    Route::get('/users', [AuthController::class, 'getUsers']);
+    Route::get('/admins', [AuthController::class, 'getAdmins']);
     Route::get('/user', [AuthController::class, 'getUser']);
     Route::put('/user/update', [AuthController::class, 'updateUser']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -53,6 +48,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders', [OrderController::class, 'userOrders']);
     Route::get('/orders/{id}', [OrderController::class, 'showOrder']);
     Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
+    Route::get('/orders/{id}/reviews/{productId}/{variationId}', [ReviewController::class, 'checkReviewStatus']);
+
+    // VNPay
+    Route::post('/vnpay/create-payment', [VNPayController::class, 'createPayment']);
+    Route::get('/vnpay/return', [VNPayController::class, 'returnPayment']);
+
+    // Voucher
+    Route::get('/vouchers', [VoucherController::class, 'index']);
 
     // Địa chỉ
     Route::get('/addresses', [AddressController::class, 'index']);
@@ -62,30 +65,32 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/addresses/{id_diaChi}', [AddressController::class, 'destroy']);
 
     // Sản phẩm yêu thích
-    Route::get('/favorites', [FavoriteController::class, 'index']); // Lấy danh sách yêu thích
-    Route::post('/favorites/{productId}', [FavoriteController::class, 'add']); // Thêm sản phẩm yêu thích
-    Route::delete('/favorites/{productId}', [FavoriteController::class, 'remove']); // Xóa sản phẩm yêu thích
+    Route::get('/favorites', [FavoriteController::class, 'index']);
+    Route::post('/favorites/{productId}', [FavoriteController::class, 'add']);
+    Route::delete('/favorites/{productId}', [FavoriteController::class, 'remove']);
 
-    // Thông báo (cho người dùng)
-    Route::get('/notifications', [NotificationController::class, 'index']); // Lấy danh sách thông báo
-    Route::post('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']); // Đánh dấu thông báo là đã đọc
-    Route::delete('/notifications/{notificationId}', [NotificationController::class, 'destroy']); // Xóa thông báo
+    // Thông báo
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{notificationId}', [NotificationController::class, 'destroy']);
 
     // Đánh giá
-    Route::post('/reviews', [ReviewController::class, 'store']); // Gửi đánh giá
-    Route::get('/user/reviews', [ReviewController::class, 'userReviews']); // Xem đánh giá của người dùng hiện tại
+    Route::post('/reviews', [ReviewController::class, 'store']);
+    Route::get('/user/reviews', [ReviewController::class, 'userReviews']);
 
-    // Chat (gửi và nhận tin nhắn cho người dùng)
-    Route::post('/messages', [MessageController::class, 'sendMessage']); // Gửi tin nhắn
-    Route::get('/messages/{receiverId}', [MessageController::class, 'getMessages']); // Lấy danh sách tin nhắn
-    Route::post('/messages/{messageId}/read', [MessageController::class, 'markAsRead']); // Đánh dấu tin nhắn là đã đọc
+    // Chat
+    Route::post('/messages', [MessageController::class, 'sendMessage']);
+    Route::get('/messages/{receiverId}', [MessageController::class, 'getMessages']);
+    Route::post('/messages/{messageId}/read', [MessageController::class, 'markAsRead']);
 
-    // API cho admin lấy tin nhắn (dùng trong chat.index.blade.php)
-    Route::get('/admin/messages/{userId}', [AdminController::class, 'getMessages']); // Lấy tin nhắn giữa admin và người dùng
+    // Admin messages
+    Route::get('/admin/messages/{userId}', [AdminController::class, 'getMessages']);
 });
 
-// 4) Routes cho admin (qua API)
+// Routes cho admin
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/admin/notifications', [NotificationController::class, 'store']); // Admin tạo thông báo
-    Route::delete('/admin/notifications/{notificationId}', [NotificationController::class, 'destroyAdmin']); // Admin xóa thông báo
+    Route::post('/admin/notifications', [NotificationController::class, 'store']);
+    Route::delete('/admin/notifications/{notificationId}', [NotificationController::class, 'destroyAdmin']);
+    Route::post('/admin/vouchers', [VoucherController::class, 'store']);
+    Route::delete('/admin/vouchers/{id}', [VoucherController::class, 'destroyAdmin']);
 });

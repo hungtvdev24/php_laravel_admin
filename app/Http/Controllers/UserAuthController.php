@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
-class AuthController extends Controller
+class UserAuthController extends Controller
 {
     // Đăng ký
     public function register(Request $request)
@@ -32,7 +32,6 @@ class AuthController extends Controller
             'tuoi' => $request->tuoi,
         ]);
 
-        // Tạo token cho người dùng mới
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -60,7 +59,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Email hoặc mật khẩu không đúng'], 401);
         }
 
-        // Tạo token cho người dùng
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

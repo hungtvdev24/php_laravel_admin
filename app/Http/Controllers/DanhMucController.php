@@ -14,7 +14,7 @@ class DanhMucController extends Controller
      */
     public function index()
     {
-        $danhMucs = DanhMuc::orderBy('id_danhMuc', 'desc')->paginate(10);
+        $danhMucs = DanhMuc::orderBy('id_danhMuc', 'asc')->paginate(10); // Sắp xếp theo ID tăng dần
         return view('admin.danhmucs.index', compact('danhMucs'));
     }
 
@@ -104,6 +104,12 @@ class DanhMucController extends Controller
     {
         try {
             $danhMuc = DanhMuc::findOrFail($id_danhMuc);
+
+            // Kiểm tra xem danh mục có sản phẩm hay không
+            if ($danhMuc->sanPhams()->count() > 0) {
+                return redirect()->route('admin.danhmucs.index')->with('error', 'Không thể xóa danh mục vì danh mục này chứa sản phẩm!');
+            }
+
             $danhMuc->delete();
             return redirect()->route('admin.danhmucs.index')->with('success', 'Danh mục đã được xóa thành công!');
         } catch (\Exception $e) {
