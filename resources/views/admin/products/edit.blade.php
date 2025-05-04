@@ -80,17 +80,6 @@
                 @enderror
             </div>
 
-            <!-- Ẩn trường Giá sản phẩm (mặc định) -->
-            <!--
-            <div class="mb-3">
-                <label for="gia" class="form-label">Giá sản phẩm (mặc định)</label>
-                <input type="number" name="gia" id="gia" class="form-control @error('gia') is-invalid @enderror" step="0.01" min="0" max="99999999.99" value="{{ old('gia', $product->gia) }}">
-                @error('gia')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
-            </div>
-            -->
-
             <!-- Biến thể -->
             <div class="mb-3">
                 <label class="form-label">Biến thể (bắt buộc)</label>
@@ -162,14 +151,22 @@
                                 </div>
                             </div>
                             <div class="mt-2">
-                                <label>Hình ảnh biến thể (chọn nhiều ảnh)</label>
+                                <label>Hình ảnh biến thể (chọn nhiều ảnh để thêm mới)</label>
                                 <input type="file" name="variations[{{ $variationIndex }}][images][]" class="form-control @error('variations.' . $variationIndex . '.images') is-invalid @enderror" multiple accept="image/*">
                                 @error('variations.' . $variationIndex . '.images')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                                 <div class="mt-2">
-                                    @foreach($variations->first()->images as $image)
-                                        <img src="{{ asset('storage/' . $image->image_url) }}" alt="Variation Image" class="img-thumbnail" style="max-width: 100px;">
+                                    @foreach($variations as $variation)
+                                        @foreach($variation->images as $image)
+                                            <div class="d-inline-block position-relative me-2 mb-2">
+                                                <img src="{{ asset('storage/' . $image->image_url) }}" alt="Variation Image" class="img-thumbnail" style="max-width: 100px;">
+                                                <div class="form-check mt-1">
+                                                    <input type="checkbox" name="variations[{{ $variationIndex }}][delete_images][]" value="{{ $image->id }}" class="form-check-input">
+                                                    <label class="form-check-label text-danger">Xóa hình ảnh này</label>
+                                                </div>
+                                            </div>
+                                        @endforeach
                                     @endforeach
                                 </div>
                             </div>
@@ -271,8 +268,8 @@
                         </div>
                     </div>
                     <div class="mt-2">
-                        <label>Hình ảnh biến thể (chọn nhiều ảnh)</label>
-                        <input type="file" name="variations[${variationIndex}][images][]" class="form-control" multiple accept="image/*" required>
+                        <label>Hình ảnh biến thể (chọn nhiều ảnh để thêm mới)</label>
+                        <input type="file" name="variations[${variationIndex}][images][]" class="form-control" multiple accept="image/*">
                     </div>
                     <button type="button" class="btn btn-danger btn-sm mt-2 remove-variation">Xóa biến thể</button>
                 </div>`;

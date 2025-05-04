@@ -47,14 +47,13 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        // Cập nhật validation: bỏ required cho trường gia
         $validator = Validator::make($request->all(), [
             'id_danhMuc'               => 'required|exists:danhMuc,id_danhMuc',
             'tenSanPham'               => 'required|string|max:255',
             'thuongHieu'               => 'required|string|max:255',
             'moTa'                     => 'required|string|max:1000',
             'trangThai'                => 'required|in:active,inactive',
-            'gia'                      => 'nullable|numeric|min:0|max:99999999.99', // Không bắt buộc
+            'gia'                      => 'nullable|numeric|min:0|max:99999999.99',
             'variations'               => 'required|array|min:1',
             'variations.*.color'       => 'required|string|max:50',
             'variations.*.sizes'       => 'nullable|array',
@@ -64,14 +63,13 @@ class ProductController extends Controller
             'variations.*.prices'      => 'required|array|min:1',
             'variations.*.prices.*'    => 'required|numeric|min:0|max:99999999.99',
             'variations.*.images'      => 'required|array|min:1',
-            'variations.*.images.*'    => 'required|image|mimes:jpg,jpeg,png|max:5120', // 5MB
+            'variations.*.images.*'    => 'required|image|mimes:jpg,jpeg,png|max:10240', // 10MB
         ]);
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        // Tạo sản phẩm
         $productData = [
             'id_danhMuc'   => $request->id_danhMuc,
             'tenSanPham'   => $request->tenSanPham,
@@ -82,14 +80,12 @@ class ProductController extends Controller
             'soSaoDanhGia' => 0,
         ];
 
-        // Nếu có giá mặc định thì thêm vào dữ liệu
         if ($request->filled('gia')) {
             $productData['gia'] = $request->gia;
         }
 
         $product = Product::create($productData);
 
-        // Lặp qua từng biến thể
         foreach ($request->variations as $index => $variationData) {
             $sizes = !empty($variationData['sizes']) ? $variationData['sizes'] : [null];
             $prices = $variationData['prices'];
@@ -134,16 +130,17 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        // Cập nhật validation: bỏ required cho trường gia
         $validator = Validator::make($request->all(), [
             'id_danhMuc'               => 'required|exists:danhMuc,id_danhMuc',
             'tenSanPham'               => 'required|string|max:255',
             'thuongHieu'               => 'required|string|max:255',
             'moTa'                     => 'required|string|max:1000',
             'trangThai'                => 'required|in:active,inactive',
-            'gia'                      => 'nullable|numeric|min:0|max:99999999.99', // Không bắt buộc
+            'gia'                      => 'nullable|numeric|min:0|max:99999999.99',
             'variations'               => 'required|array|min:1',
             'variations.*.id'          => 'nullable|exists:product_variations,id',
+            'variations.*.ids'         => 'nullable|array',
+            'variations.*.ids.*'       => 'exists:product_variations,id',
             'variations.*.color'       => 'required|string|max:50',
             'variations.*.sizes'       => 'nullable|array',
             'variations.*.sizes.*'     => 'string|max:50',
@@ -151,8 +148,10 @@ class ProductController extends Controller
             'variations.*.stocks.*'    => 'required|integer|min:0',
             'variations.*.prices'      => 'required|array|min:1',
             'variations.*.prices.*'    => 'required|numeric|min:0|max:99999999.99',
-            'variations.*.images'      => 'required|array|min:1',
-            'variations.*.images.*'    => 'required|image|mimes:jpg,jpeg,png|max:5120', // 5MB
+            'variations.*.images'      => 'nullable|array',
+            'variations.*.images.*'    => 'nullable|image|mimes:jpg,jpeg,png|max:10240', // 10MB
+            'variations.*.delete_images' => 'nullable|array',
+            'variations.*.delete_images.*' => 'exists:product_variation_images,id',
         ]);
 
         if ($validator->fails()) {
@@ -170,83 +169,76 @@ class ProductController extends Controller
         if ($request->filled('gia')) {
             $productData['gia'] = $request->gia;
         } else {
-            $productData['gia'] = null; // Xóa giá mặc định nếu không có
+            $productData['gia'] = $product->gia;
         }
 
         $product->update($productData);
 
-        $existingVariationIds = $product->variations->pluck('id')->toArray();
-        $submittedVariationIds = array_filter(array_column($request->variations, 'id'));
-
-        // Xóa các biến thể cũ không có trong dữ liệu mới
-        foreach ($existingVariationIds as $variationId) {
-            if (!in_array($variationId, $submittedVariationIds)) {
-                $variation = ProductVariation::find($variationId);
-                foreach ($variation->images as $image) {
-                    Storage::disk('public')->delete($image->image_url);
-                    $image->delete();
-                }
-                $variation->delete();
-            }
-        }
-
-        // Xử lý cập nhật hoặc tạo mới các biến thể
         foreach ($request->variations as $index => $variationData) {
             $sizes = !empty($variationData['sizes']) ? $variationData['sizes'] : [null];
             $prices = $variationData['prices'];
             $stocks = $variationData['stocks'];
+            $deleteImageIds = isset($variationData['delete_images']) ? $variationData['delete_images'] : [];
 
-            if (isset($variationData['id']) && $variationData['id']) {
-                $existingVariations = $product->variations->where('color', $variationData['color']);
-                $existingSizes = $existingVariations->pluck('size')->toArray();
-                $newSizes = $sizes;
-
-                foreach ($existingVariations as $var) {
-                    if (!in_array($var->size, $newSizes)) {
-                        foreach ($var->images as $image) {
-                            Storage::disk('public')->delete($image->image_url);
-                            $image->delete();
-                        }
-                        $var->delete();
+            // Xóa hình ảnh được chọn
+            if (!empty($deleteImageIds)) {
+                foreach ($deleteImageIds as $imageId) {
+                    $image = ProductVariationImage::find($imageId);
+                    if ($image) {
+                        Storage::disk('public')->delete($image->image_url);
+                        $image->delete();
                     }
                 }
+            }
 
-                foreach ($sizes as $sizeIndex => $size) {
-                    $existingVariation = $existingVariations->where('size', $size)->first();
-                    $price = count($prices) === 1 ? $prices[0] : (isset($prices[$sizeIndex]) ? $prices[$sizeIndex] : $prices[0]);
-                    $stock = count($stocks) === 1 ? $stocks[0] : (isset($stocks[$sizeIndex]) ? $stocks[$sizeIndex] : $stocks[0]);
-
+            // Nếu là biến thể hiện có (có ids được gửi lên)
+            if (isset($variationData['ids']) && !empty($variationData['ids'])) {
+                foreach ($variationData['ids'] as $variationId) {
+                    $existingVariation = ProductVariation::find($variationId);
                     if ($existingVariation) {
-                        $existingVariation->update([
+                        // Chỉ cập nhật các trường được gửi lên, giữ nguyên nếu không thay đổi
+                        $updateData = [
                             'color' => $variationData['color'],
-                            'size'  => $size,
-                            'price' => $price,
-                            'stock' => $stock,
-                        ]);
-                    } else {
-                        $newVariation = ProductVariation::create([
-                            'product_id' => $product->id_sanPham,
-                            'color'      => $variationData['color'],
-                            'size'       => $size,
-                            'price'      => $price,
-                            'stock'      => $stock,
-                        ]);
+                        ];
 
+                        // Cập nhật size, stock, price cho các size được chọn
+                        $newSizes = array_filter($sizes); // Loại bỏ null nếu có
+                        if (!empty($newSizes) && in_array($existingVariation->size, $newSizes)) {
+                            $sizeIndex = array_search($existingVariation->size, $newSizes);
+                            $price = count($prices) === 1 ? $prices[0] : (isset($prices[$sizeIndex]) ? $prices[$sizeIndex] : $existingVariation->price);
+                            $stock = count($stocks) === 1 ? $stocks[0] : (isset($stocks[$sizeIndex]) ? $stocks[$sizeIndex] : $existingVariation->stock);
+                            $updateData['price'] = $price;
+                            $updateData['stock'] = $stock;
+                        } else {
+                            // Nếu size không được chọn, giữ nguyên price và stock
+                            $updateData['price'] = $existingVariation->price;
+                            $updateData['stock'] = $existingVariation->stock;
+                        }
+
+                        $existingVariation->update($updateData);
+
+                        // Thêm ảnh mới nếu có
                         if (isset($variationData['images']) && $request->hasFile("variations.{$index}.images")) {
                             foreach ($request->file("variations.{$index}.images") as $image) {
-                                $imagePath = $image->store('variation_images', 'public');
-                                ProductVariationImage::create([
-                                    'product_variation_id' => $newVariation->id,
-                                    'image_url' => $imagePath,
-                                ]);
+                                try {
+                                    $imagePath = $image->store('variation_images', 'public');
+                                    ProductVariationImage::create([
+                                        'product_variation_id' => $existingVariation->id,
+                                        'image_url' => $imagePath,
+                                    ]);
+                                } catch (\Exception $e) {
+                                    Log::error('Error uploading image: ' . $e->getMessage());
+                                    return redirect()->back()->withErrors(['variations.' . $index . '.images' => 'Lỗi khi tải lên hình ảnh: ' . $e->getMessage()])->withInput();
+                                }
                             }
                         }
                     }
                 }
             } else {
+                // Tạo biến thể mới
                 foreach ($sizes as $sizeIndex => $size) {
-                    $price = count($prices) === 1 ? $prices[0] : (isset($prices[$sizeIndex]) ? $prices[$sizeIndex] : $prices[0]);
-                    $stock = count($stocks) === 1 ? $stocks[0] : (isset($stocks[$sizeIndex]) ? $stocks[$sizeIndex] : $stocks[0]);
+                    $price = count($prices) === 1 ? $prices[0] : (isset($prices[$sizeIndex]) ? $prices[$sizeIndex] : 0);
+                    $stock = count($stocks) === 1 ? $stocks[0] : (isset($stocks[$sizeIndex]) ? $stocks[$sizeIndex] : 0);
 
                     $variation = ProductVariation::create([
                         'product_id' => $product->id_sanPham,
@@ -258,11 +250,16 @@ class ProductController extends Controller
 
                     if (isset($variationData['images']) && $request->hasFile("variations.{$index}.images")) {
                         foreach ($request->file("variations.{$index}.images") as $image) {
-                            $imagePath = $image->store('variation_images', 'public');
-                            ProductVariationImage::create([
-                                'product_variation_id' => $variation->id,
-                                'image_url' => $imagePath,
-                            ]);
+                            try {
+                                $imagePath = $image->store('variation_images', 'public');
+                                ProductVariationImage::create([
+                                    'product_variation_id' => $variation->id,
+                                    'image_url' => $imagePath,
+                                ]);
+                            } catch (\Exception $e) {
+                                Log::error('Error uploading image: ' . $e->getMessage());
+                                return redirect()->back()->withErrors(['variations.' . $index . '.images' => 'Lỗi khi tải lên hình ảnh: ' . $e->getMessage()])->withInput();
+                            }
                         }
                     }
                 }

@@ -27,7 +27,9 @@ class User extends Authenticatable
 
     public function notifications()
     {
-        return $this->hasMany(Notification::class, 'user_id', 'id');
+        return $this->belongsToMany(Notification::class, 'notification_user')
+                    ->withPivot('is_read')
+                    ->withTimestamps();
     }
 
     public function reviews()
@@ -35,21 +37,18 @@ class User extends Authenticatable
         return $this->hasMany(Review::class, 'id_nguoiDung', 'id');
     }
 
-    // Quan hệ 1-nhiều: Tin nhắn đã gửi
     public function sentMessages()
     {
         return $this->hasMany(Mess::class, 'sender_id', 'id')
                     ->where('sender_type', 'App\\Models\\User');
     }
 
-    // Quan hệ 1-nhiều: Tin nhắn đã nhận
     public function receivedMessages()
     {
         return $this->hasMany(Mess::class, 'receiver_id', 'id')
                     ->where('receiver_type', 'App\\Models\\User');
     }
 
-    // Quan hệ với vouchers qua user_voucher_usage
     public function vouchers()
     {
         return $this->belongsToMany(Voucher::class, 'user_voucher_usage')
@@ -57,7 +56,6 @@ class User extends Authenticatable
                     ->withTimestamps();
     }
 
-    // Quan hệ với đơn hàng
     public function orders()
     {
         return $this->hasMany(DonHang::class, 'id_nguoiDung');

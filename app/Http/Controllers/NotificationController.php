@@ -5,24 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
 {
-    // Hiển thị danh sách thông báo đã gửi (index)
     public function indexAdmin()
     {
-        $notifications = Notification::with('users')->latest()->paginate(10); // Sử dụng paginate thay vì get
+        $notifications = Notification::with('users')->latest()->paginate(10);
         return view('admin.affiliate.notifications.index', compact('notifications'));
     }
 
-    // Hiển thị form tạo thông báo mới (create)
     public function createAdmin()
     {
-        $users = User::all(); // Lấy danh sách người dùng để admin chọn
+        $users = User::all();
         return view('admin.affiliate.notifications.create', compact('users'));
     }
 
-    // Xử lý tạo thông báo mới (store từ form)
     public function storeAdmin(Request $request)
     {
         $request->validate([
@@ -43,48 +41,66 @@ class NotificationController extends Controller
         return redirect()->route('admin.affiliate.notifications.index')->with('success', 'Thông báo đã được tạo và gửi thành công!');
     }
 
-    // Hiển thị chi tiết thông báo (detail)
     public function showAdmin($id)
     {
         $notification = Notification::with('users')->findOrFail($id);
         return view('admin.affiliate.notifications.detail', compact('notification'));
     }
 
-    // Xóa thông báo
     public function destroyAdmin($id)
     {
         $notification = Notification::findOrFail($id);
-        $notification->users()->detach(); // Xóa mối quan hệ với users trong bảng pivot
-        $notification->delete(); // Xóa thông báo
+        $notification->users()->detach();
+        $notification->delete();
 
         return redirect()->route('admin.affiliate.notifications.index')->with('success', 'Thông báo đã được xóa thành công!');
     }
 
-    // API: Xem danh sách thông báo của người dùng
     public function index(Request $request)
     {
-        $user = $request->user();
-        $notifications = Notification::whereHas('users', function ($query) use ($user) {
-            $query->where('notification_user.user_id', $user->id);
-        })
-        ->with(['users' => function ($query) use ($user) {
-            $query->where('notification_user.user_id', $user->id)
-                  ->withPivot('is_read');
-        }])
-        ->latest()
-        ->get();
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        return response()->json($notifications);
+        $userId = $request->query('user_id');
+        if (!$userId || $user->id != $userId) {
+            return response()->json(['message' => 'Invalid user_id'], 403);
+        }
+
+        $notifications = $user->notifications()
+            ->withPivot('is_read')
+            ->latest()
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'title' => $notification->title,
+                    'content' => $notification->content,
+                    'created_at' => $notification->created_at->toIso8601String(),
+                    'users' => [
+                        [
+                            'pivot' => [
+                                'is_read' => (bool) $notification->pivot->is_read,
+                            ],
+                        ],
+                    ],
+                ];
+            });
+
+        return response()->json(['data' => $notifications], 200);
     }
 
-    // API: Đánh dấu thông báo là đã đọc
     public function markAsRead(Request $request, $notificationId)
     {
-        $user = $request->user();
-        $notification = Notification::findOrFail($notificationId);
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        if (!$user->notifications()->where('notification_id', $notificationId)->exists()) {
-            return response()->json(['message' => 'Thông báo không tồn tại hoặc không thuộc về bạn'], 403);
+        $notification = Notification::find($notificationId);
+        if (!$notification || !$user->notifications()->where('notification_id', $notificationId)->exists()) {
+            return response()->json(['message' => 'Thông báo không tồn tại hoặc không thuộc về bạn'], 404);
         }
 
         $user->notifications()->updateExistingPivot($notificationId, ['is_read' => true]);
@@ -92,7 +108,6 @@ class NotificationController extends Controller
         return response()->json(['message' => 'Thông báo đã được đánh dấu là đã đọc']);
     }
 
-    // API: Admin tạo thông báo
     public function store(Request $request)
     {
         $request->validate([
@@ -116,12 +131,11 @@ class NotificationController extends Controller
         ], 201);
     }
 
-    // API: Xóa thông báo
     public function destroy($notificationId)
     {
         $notification = Notification::findOrFail($notificationId);
-        $notification->users()->detach(); // Xóa mối quan hệ với users trong bảng pivot
-        $notification->delete(); // Xóa thông báo
+        $notification->users()->detach();
+        $notification->delete();
 
         return response()->json(['message' => 'Thông báo đã được xóa thành công']);
     }
